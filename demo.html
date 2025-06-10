@@ -134,6 +134,44 @@
             </div>
         </div>
 
+        <!-- Location Configuration Section -->
+        <div class="demo-section">
+            <div class="demo-title">Location Configuration</div>
+            <div class="card">
+                <h3>Set Data Collection Location</h3>
+                <div class="location-pin-info">
+                    📍 Click on the map to set your location pin, or enter coordinates manually below.
+                    <div class="pin-coordinates">Current: 35.6762°N, 139.6503°E (Tokyo)</div>
+                </div>
+                
+                <div class="map-container">
+                    <div id="map" style="height: 100%; background: #2a2a2a; display: flex; align-items: center; justify-content: center; color: #666;">
+                        Interactive Map (Leaflet.js)
+                    </div>
+                </div>
+                
+                <div class="location-section">
+                    <div class="coord-input">
+                        <h4>Manual Coordinates</h4>
+                        <div class="coord-row">
+                            <input type="number" placeholder="Latitude" value="35.6762" step="0.0001">
+                            <input type="number" placeholder="Longitude" value="139.6503" step="0.0001">
+                        </div>
+                        <button style="width: 100%; padding: 8px; background: #4CAF50; color: #000; border: none; border-radius: 4px; margin-top: 10px;">SET LOCATION</button>
+                    </div>
+                    
+                    <div class="coord-input">
+                        <h4>Location Info</h4>
+                        <p style="margin: 10px 0; opacity: 0.8;">Selected location will be used for environmental data collection from weather APIs.</p>
+                        <div style="color: #4CAF50; font-size: 0.9em;">
+                            <div>Elevation: 40m</div>
+                            <div>Timezone: Asia/Tokyo</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Pin Configuration Section -->
         <div class="demo-section">
             <div class="demo-title">Pin Configuration</div>
@@ -149,7 +187,6 @@
                             <option value="wind">Wind Speed</option>
                             <option value="moon">Moon Phase</option>
                         </select>
-                        <input type="text" placeholder="Location (optional)" value="Tokyo, Japan">
                         <input type="range" min="0" max="5" step="0.1" value="2.4">
                     </div>
                     <div class="pin-item">
@@ -161,7 +198,6 @@
                             <option value="wind">Wind Speed</option>
                             <option value="moon">Moon Phase</option>
                         </select>
-                        <input type="text" placeholder="Location (optional)" value="New York, USA">
                         <input type="range" min="0" max="5" step="0.1" value="3.1">
                     </div>
                     <div class="pin-item">
@@ -173,7 +209,6 @@
                             <option value="wind">Wind Speed</option>
                             <option value="moon">Moon Phase</option>
                         </select>
-                        <input type="text" placeholder="Location (optional)" value="London, UK">
                         <input type="range" min="0" max="5" step="0.1" value="1.8">
                     </div>
                     <div class="pin-item">
@@ -185,11 +220,36 @@
                             <option value="pressure">Pressure</option>
                             <option value="moon">Moon Phase</option>
                         </select>
-                        <input type="text" placeholder="Location (optional)" value="Sydney, Australia">
                         <input type="range" min="0" max="5" step="0.1" value="4.2">
                     </div>
                 </div>
                 <button style="width: 100%; padding: 15px; background: #4CAF50; color: #000; border: none; border-radius: 6px; font-weight: bold; margin-top: 20px;">SAVE CONFIGURATION</button>
+            </div>
+        </div>
+
+        <!-- API Configuration Section -->
+        <div class="demo-section">
+            <div class="demo-title">API Configuration</div>
+            <div class="card">
+                <h3>External API Settings</h3>
+                
+                <div class="api-config">
+                    <h4>OpenWeather API</h4>
+                    <input type="text" class="api-input" placeholder="Enter your OpenWeather API key" value="abc123def456...">
+                    <div style="font-size: 0.8em; opacity: 0.7; margin-top: 5px;">
+                        Get your free API key at: <span style="color: #4CAF50;">openweathermap.org/api</span>
+                    </div>
+                </div>
+                
+                <div class="api-config">
+                    <h4>NASA API (Optional)</h4>
+                    <input type="text" class="api-input" placeholder="Enter NASA API key (optional)" value="">
+                    <div style="font-size: 0.8em; opacity: 0.7; margin-top: 5px;">
+                        For space weather data. Get key at: <span style="color: #4CAF50;">api.nasa.gov</span>
+                    </div>
+                </div>
+                
+                <button style="width: 100%; padding: 15px; background: #4CAF50; color: #000; border: none; border-radius: 6px; font-weight: bold; margin-top: 20px;">SAVE API KEYS</button>
             </div>
         </div>
 
