@@ -102,6 +102,13 @@ class TEMController {
     
     async initMap() {
         try {
+            // Check if map is already initialized
+            const mapEl = document.getElementById('map');
+            if (!mapEl || mapEl._leaflet_id) {
+                console.log('Map already initialized or element not found');
+                return;
+            }
+            
             // Initialize Leaflet map with dark theme
             this.map = L.map('map').setView([35.6762, 139.6503], 2);
             
@@ -111,15 +118,15 @@ class TEMController {
                 maxZoom: 18
             }).addTo(this.map);
             
-            // Map click handler for adding pins
-            this.map.on('click', (e) => {
-                this.addPin(e.latlng.lat, e.latlng.lng);
-            });
+            // Map click handler disabled for TEM (location is set via main interface)
+            // this.map.on('click', (e) => {
+            //     this.addPin(e.latlng.lat, e.latlng.lng);
+            // });
             
-            // Load existing pins
-            await this.loadPins();
+            // Skip pin loading for TEM (pins managed by ESP32)
+            // await this.loadPins();
             
-            console.log('🗺️ Map initialized');
+            console.log('🗺️ TEM Map initialized');
         } catch (error) {
             console.error('Failed to initialize map:', error);
         }
@@ -155,31 +162,36 @@ class TEMController {
     }
     
     async loadPins() {
-        try {
-            const response = await fetch('/api/pins');
-            this.pins = await response.json();
-            
-            // Clear existing markers
-            this.map.eachLayer((layer) => {
-                if (layer instanceof L.Marker) {
-                    this.map.removeLayer(layer);
-                }
-            });
-            
-            // Add markers for each pin
-            this.pins.forEach(pin => {
-                const marker = L.marker([pin.lat, pin.lon])
-                    .addTo(this.map)
-                    .bindPopup(`
-                        <strong>${pin.name}</strong><br>
-                        Lat: ${pin.lat.toFixed(4)}<br>
-                        Lng: ${pin.lon.toFixed(4)}
-                    `);
-            });
-            
-        } catch (error) {
-            console.error('Failed to load pins:', error);
-        }
+        // Disabled for TEM - pins are managed by ESP32 interface
+        console.log('Pin loading disabled for TEM');
+        return;
+        
+        // Original code commented out
+        // try {
+        //     const response = await fetch('/api/pins');
+        //     this.pins = await response.json();
+        //     
+        //     // Clear existing markers
+        //     this.map.eachLayer((layer) => {
+        //         if (layer instanceof L.Marker) {
+        //             this.map.removeLayer(layer);
+        //         }
+        //     });
+        //     
+        //     // Add markers for each pin
+        //     this.pins.forEach(pin => {
+        //         const marker = L.marker([pin.lat, pin.lon])
+        //             .addTo(this.map)
+        //             .bindPopup(`
+        //                 <strong>${pin.name}</strong><br>
+        //                 Lat: ${pin.lat.toFixed(4)}<br>
+        //                 Lng: ${pin.lon.toFixed(4)}
+        //             `);
+        //     });
+        //     
+        // } catch (error) {
+        //     console.error('Failed to load pins:', error);
+        // }
     }
     
     setupEventListeners() {
