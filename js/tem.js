@@ -118,10 +118,10 @@ class TEMController {
                 maxZoom: 18
             }).addTo(this.map);
             
-            // Map click handler disabled for TEM (location is set via main interface)
-            // this.map.on('click', (e) => {
-            //     this.addPin(e.latlng.lat, e.latlng.lng);
-            // });
+            // Map click handler for setting single location pin
+            this.map.on('click', (e) => {
+                this.addPin(e.latlng.lat, e.latlng.lng);
+            });
             
             // Skip pin loading for TEM (pins managed by ESP32)
             // await this.loadPins();
@@ -133,31 +133,26 @@ class TEMController {
     }
     
     async addPin(lat, lng) {
-        const name = prompt('Enter pin name:');
-        if (!name) return;
-        
+        // Simplified pin function - no name required, single pin per device
         try {
-            const response = await fetch('/api/pins', {
+            const response = await fetch('/api/location', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: JSON.stringify({
-                    lat: lat,
-                    lon: lng,
-                    name: name
-                })
+                body: `lat=${lat}&lng=${lng}`
             });
             
             if (response.ok) {
-                await this.loadPins();
-                this.showSuccess(`Pin "${name}" added successfully`);
+                this.showSuccess(`Location updated to ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+                // Reload page to refresh weather data
+                setTimeout(() => location.reload(), 1500);
             } else {
-                throw new Error('Failed to add pin');
+                throw new Error('Failed to update location');
             }
         } catch (error) {
-            console.error('Failed to add pin:', error);
-            this.showError('Failed to add pin');
+            console.error('Failed to update location:', error);
+            this.showError('Failed to update location');
         }
     }
     
