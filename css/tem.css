@@ -265,6 +265,23 @@ body.time-night { background: linear-gradient(135deg, #04040A 0%, #020303 100%);
     to { transform: rotate(360deg); }
 }
 
+/* Delete button style */
+.btn-danger {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s ease;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+    transform: translateY(-1px);
+}
+
 /* Responsive Adjustments */
 @media (max-width: 768px) {
     .header h1 { font-size: 20px; }

@@ -40,6 +40,9 @@
         // Start data updates
         startUpdates();
         
+        // Initialize map
+        initMap();
+        
         // Mark as initialized
         window.TEMInitialized = true;
         
@@ -180,11 +183,8 @@
                     <span id="lat-value">${currentData.latitude.toFixed(4)}</span>°, 
                     <span id="lon-value">${currentData.longitude.toFixed(4)}</span>°
                 </div>
-                <div class="map-container" id="map">
-                    <!-- Map would go here if using Leaflet -->
-                    <div style="padding: 80px 20px; text-align: center; color: #666;">
-                        Click to set location
-                    </div>
+                <div class="map-container" id="map-container">
+                    <div id="map" style="height: 200px; background: #1a1a1a; border-radius: 8px;"></div>
                 </div>
             </div>
         `;
@@ -197,11 +197,17 @@
                 <div class="tile-title">API Configuration</div>
                 <div class="input-group">
                     <label>OpenWeather API Key</label>
-                    <input type="password" id="weather-key" placeholder="-" value="${currentData.hasApiKey ? '********' : ''}">
+                    <div style="display: flex; gap: 5px;">
+                        <input type="password" id="weather-key" placeholder="-" value="${currentData.apiKeys?.openweather ? '********' : ''}" style="flex: 1;">
+                        ${currentData.apiKeys?.openweather ? '<button class="btn btn-danger" onclick="deleteApiKey(\'openweather\')">Delete</button>' : ''}
+                    </div>
                 </div>
                 <div class="input-group">
                     <label>NASA API Key</label>
-                    <input type="password" id="nasa-key" placeholder="-" value="${currentData.hasNasaKey ? '********' : ''}">
+                    <div style="display: flex; gap: 5px;">
+                        <input type="password" id="nasa-key" placeholder="-" value="${currentData.apiKeys?.nasa ? '********' : ''}" style="flex: 1;">
+                        ${currentData.apiKeys?.nasa ? '<button class="btn btn-danger" onclick="deleteApiKey(\'nasa\')">Delete</button>' : ''}
+                    </div>
                 </div>
                 <button class="btn" onclick="saveSettings()">Save Settings</button>
                 <button class="btn btn-secondary" onclick="location.href='/reset'" style="margin-left: 10px;">Reset WiFi</button>
@@ -278,11 +284,66 @@
         fetch('/api/location', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: `lat=${lat}&lon=${lon}`
+            body: `lat=${lat}&lng=${lon}`  // Fixed: lng instead of lon
         }).then(() => {
             currentData.latitude = lat;
             currentData.longitude = lon;
             updateUI();
+        }).catch(err => {
+            console.error('Location update error:', err);
+            alert('Failed to update location');
+        });
+    }
+    
+    // Delete API key
+    window.deleteApiKey = function(keyType) {
+        if (confirm(`Delete ${keyType} API key?`)) {
+            const params = new URLSearchParams();
+            params.append(keyType, 'DELETE');
+            
+            fetch('/api/keys', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString()
+            }).then(response => {
+                if (response.ok) {
+                    alert('API key deleted');
+                    currentData.apiKeys[keyType] = false;
+                    buildInterface(); // Rebuild UI to update buttons
+                    fetchData();
+                }
+            });
+        }
+    };
+    
+    // Initialize map
+    function initMap() {
+        const mapEl = document.getElementById('map');
+        if (!mapEl) return;
+        
+        // Simple fallback map without Leaflet
+        mapEl.innerHTML = `
+            <div style="height: 200px; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); 
+                 border-radius: 8px; display: flex; align-items: center; justify-content: center; 
+                 cursor: crosshair; position: relative;">
+                <div style="text-align: center; color: #888;">
+                    <div style="font-size: 16px; margin-bottom: 10px;">📍 ${currentData.cityName || 'Unknown'}</div>
+                    <div style="font-size: 13px; opacity: 0.7;">${currentData.latitude.toFixed(3)}°, ${currentData.longitude.toFixed(3)}°</div>
+                    <div style="font-size: 11px; margin-top: 15px; opacity: 0.5;">Click to set location</div>
+                </div>
+            </div>
+        `;
+        
+        mapEl.addEventListener('click', function(e) {
+            const rect = this.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            
+            // Simple lat/lon calculation (basic approximation)
+            const lat = 90 - (y * 180);
+            const lon = (x * 360) - 180;
+            
+            updateLocation(lat, lon);
         });
     }
 
