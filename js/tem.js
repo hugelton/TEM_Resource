@@ -183,6 +183,21 @@
                     <span id="lat-value">${currentData.latitude.toFixed(4)}</span>°, 
                     <span id="lon-value">${currentData.longitude.toFixed(4)}</span>°
                 </div>
+                <div style="display: flex; gap: 5px; margin: 10px 0;">
+                    <button class="btn btn-primary" onclick="getCurrentLocation()" style="flex: 1;">
+                        📍 Current Location
+                    </button>
+                    <button class="btn btn-secondary" onclick="showLocationSearch()" style="flex: 1;">
+                        🔍 Search
+                    </button>
+                </div>
+                <div id="location-search" style="display: none; margin: 10px 0;">
+                    <input type="text" id="location-query" placeholder="City name or address" 
+                           onkeypress="if(event.key==='Enter') searchLocation()"
+                           style="width: 100%; padding: 8px; background: #222; border: 1px solid #444; color: #fff; border-radius: 4px;">
+                    <button class="btn btn-primary" onclick="searchLocation()" style="width: 100%; margin-top: 5px;">Search</button>
+                </div>
+                <div id="location-status" style="margin: 5px 0; font-size: 12px; color: #888;"></div>
                 <div class="map-container" id="map-container">
                     <div id="map" style="height: 200px; background: #1a1a1a; border-radius: 8px;"></div>
                 </div>
@@ -280,7 +295,7 @@
     };
 
     // Update location
-    function updateLocation(lat, lon) {
+    function updateLocation(lat, lon, showSuccess = false) {
         fetch('/api/location', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -289,10 +304,132 @@
             currentData.latitude = lat;
             currentData.longitude = lon;
             updateUI();
+            if (showSuccess) {
+                updateLocationStatus('Location updated successfully', 'success');
+            }
         }).catch(err => {
             console.error('Location update error:', err);
-            alert('Failed to update location');
+            updateLocationStatus('Failed to update location', 'error');
         });
+    }
+    
+    // Get current location using browser Geolocation API
+    window.getCurrentLocation = function() {
+        const statusEl = document.getElementById('location-status');
+        
+        if (!navigator.geolocation) {
+            updateLocationStatus('Geolocation not supported by your browser', 'error');
+            return;
+        }
+        
+        updateLocationStatus('Getting your location...', 'info');
+        
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                updateLocation(lat, lon, true);
+                
+                // Update map if available
+                if (window.temMap && window.temMarker) {
+                    window.temMarker.setLatLng([lat, lon]);
+                    window.temMap.setView([lat, lon], 12);
+                    window.temMarker.setPopupContent(`<b>Your Location</b><br>${lat.toFixed(4)}, ${lon.toFixed(4)}`).openPopup();
+                }
+                
+                updateLocationStatus(`📍 Location: ${lat.toFixed(4)}, ${lon.toFixed(4)}`, 'success');
+            },
+            (error) => {
+                let message = 'Unable to get location';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        message = 'Location permission denied';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        message = 'Location information unavailable';
+                        break;
+                    case error.TIMEOUT:
+                        message = 'Location request timed out';
+                        break;
+                }
+                updateLocationStatus(message, 'error');
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    };
+    
+    // Show/hide location search
+    window.showLocationSearch = function() {
+        const searchDiv = document.getElementById('location-search');
+        if (searchDiv) {
+            searchDiv.style.display = searchDiv.style.display === 'none' ? 'block' : 'none';
+            if (searchDiv.style.display === 'block') {
+                document.getElementById('location-query').focus();
+            }
+        }
+    };
+    
+    // Search location using Nominatim (OpenStreetMap)
+    window.searchLocation = function() {
+        const query = document.getElementById('location-query').value;
+        if (!query) return;
+        
+        updateLocationStatus('Searching...', 'info');
+        
+        // Use Nominatim API (free, no key required)
+        fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`)
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.length > 0) {
+                    const result = data[0];
+                    const lat = parseFloat(result.lat);
+                    const lon = parseFloat(result.lon);
+                    const displayName = result.display_name;
+                    
+                    updateLocation(lat, lon, true);
+                    
+                    // Update map
+                    if (window.temMap && window.temMarker) {
+                        window.temMarker.setLatLng([lat, lon]);
+                        window.temMap.setView([lat, lon], 12);
+                        window.temMarker.setPopupContent(`<b>${displayName}</b><br>${lat.toFixed(4)}, ${lon.toFixed(4)}`).openPopup();
+                    }
+                    
+                    updateLocationStatus(`Found: ${displayName.split(',')[0]}`, 'success');
+                    
+                    // Hide search box
+                    document.getElementById('location-search').style.display = 'none';
+                    document.getElementById('location-query').value = '';
+                } else {
+                    updateLocationStatus('Location not found', 'error');
+                }
+            })
+            .catch(err => {
+                console.error('Search error:', err);
+                updateLocationStatus('Search failed', 'error');
+            });
+    };
+    
+    // Update location status message
+    function updateLocationStatus(message, type) {
+        const statusEl = document.getElementById('location-status');
+        if (statusEl) {
+            statusEl.textContent = message;
+            statusEl.style.color = type === 'error' ? '#f44' : type === 'success' ? '#4f4' : '#888';
+            
+            // Auto-hide success messages after 3 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    if (statusEl.textContent === message) {
+                        statusEl.textContent = '';
+                    }
+                }, 3000);
+            }
+        }
     }
     
     // Delete API key

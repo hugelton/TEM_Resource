@@ -265,7 +265,39 @@ body.time-night { background: linear-gradient(135deg, #04040A 0%, #020303 100%);
     to { transform: rotate(360deg); }
 }
 
-/* Delete button style */
+/* Button styles */
+.btn-primary {
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+    transform: translateY(-1px);
+}
+
+.btn-secondary {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+    background: #545b62;
+    transform: translateY(-1px);
+}
+
 .btn-danger {
     background: #dc3545;
     color: white;
