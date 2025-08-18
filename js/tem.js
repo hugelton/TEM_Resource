@@ -319,16 +319,77 @@
     // Initialize map
     function initMap() {
         const mapEl = document.getElementById('map');
-        if (!mapEl) return;
+        if (!mapEl) {
+            console.error('Map element not found');
+            return;
+        }
         
-        // Simple fallback map without Leaflet
+        console.log('Initializing map, Leaflet available:', typeof L !== 'undefined');
+        
+        // Check if Leaflet is available
+        if (typeof L !== 'undefined') {
+            try {
+                // Initialize Leaflet map
+                const map = L.map('map', {
+                    center: [currentData.latitude || 35.6762, currentData.longitude || 139.6503],
+                    zoom: 10,
+                    zoomControl: true,
+                    attributionControl: false
+                });
+                
+                // Dark theme tiles
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '© OpenStreetMap contributors © CARTO',
+                    subdomains: 'abcd',
+                    maxZoom: 19
+                }).addTo(map);
+                
+                // Add marker
+                const marker = L.marker([currentData.latitude || 35.6762, currentData.longitude || 139.6503], {
+                    draggable: true
+                }).addTo(map);
+                
+                // Popup with city name
+                marker.bindPopup(`<b>${currentData.cityName || currentData.city || 'Current Location'}</b><br>${(currentData.latitude || 35.6762).toFixed(4)}, ${(currentData.longitude || 139.6503).toFixed(4)}`).openPopup();
+                
+                // Map click handler
+                map.on('click', function(e) {
+                    marker.setLatLng([e.latlng.lat, e.latlng.lng]);
+                    marker.setPopupContent(`<b>New Location</b><br>${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`).openPopup();
+                    updateLocation(e.latlng.lat, e.latlng.lng);
+                });
+                
+                // Marker drag handler
+                marker.on('dragend', function(e) {
+                    const pos = marker.getLatLng();
+                    marker.setPopupContent(`<b>New Location</b><br>${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}`).openPopup();
+                    updateLocation(pos.lat, pos.lng);
+                });
+                
+                // Store references
+                window.temMap = map;
+                window.temMarker = marker;
+                
+                console.log('Leaflet map initialized successfully');
+            } catch (err) {
+                console.error('Leaflet error:', err);
+                initFallbackMap(mapEl);
+            }
+        } else {
+            console.log('Leaflet not available, using fallback');
+            initFallbackMap(mapEl);
+        }
+    }
+    
+    // Fallback map
+    function initFallbackMap(mapEl) {
         mapEl.innerHTML = `
             <div style="height: 200px; background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); 
                  border-radius: 8px; display: flex; align-items: center; justify-content: center; 
                  cursor: crosshair; position: relative;">
                 <div style="text-align: center; color: #888;">
-                    <div style="font-size: 16px; margin-bottom: 10px;">📍 ${currentData.cityName || 'Unknown'}</div>
-                    <div style="font-size: 13px; opacity: 0.7;">${currentData.latitude.toFixed(3)}°, ${currentData.longitude.toFixed(3)}°</div>
+                    <div style="font-size: 16px; margin-bottom: 10px;">📍 ${currentData.cityName || currentData.city || 'Set Location'}</div>
+                    <div style="font-size: 13px; opacity: 0.7;">${(currentData.latitude || 0).toFixed(3)}°, ${(currentData.longitude || 0).toFixed(3)}°</div>
                     <div style="font-size: 11px; margin-top: 15px; opacity: 0.5;">Click to set location</div>
                 </div>
             </div>
@@ -339,7 +400,6 @@
             const x = (e.clientX - rect.left) / rect.width;
             const y = (e.clientY - rect.top) / rect.height;
             
-            // Simple lat/lon calculation (basic approximation)
             const lat = 90 - (y * 180);
             const lon = (x * 360) - 180;
             
