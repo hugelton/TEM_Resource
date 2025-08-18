@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>TEM Rich UI Test</title>
+    <link rel="stylesheet" href="css/tem.css">
+</head>
+<body>
+    <div class="loading" id="loading">Loading Earth Module Interface...</div>
+    <div id="app" style="display:none"></div>
+
+    <script>
+        // Mock configuration for testing
+        window.TEM_CONFIG = {
+            deviceID: 'b734',
+            apiEndpoint: '/api',
+            updateInterval: 5000 // Slower for demo
+        };
+        
+        // Mock initial data
+        window.TEM_DATA = {
+            cvValues: [0.5, 0.3, 0.7, 0.2],
+            temperature: 22.5,
+            humidity: 65,
+            pressure: 1015,
+            windSpeed: 3.2,
+            visibility: 12,
+            cloudCover: 45,
+            dewPoint: 16.3,
+            moonPhase: 0.25,
+            solarElevation: 35,
+            latitude: 35.6762,
+            longitude: 139.6503,
+            hasApiKey: true
+        };
+        
+        // Override fetch for demo (simulate API responses)
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            console.log('Mock fetch:', url);
+            
+            // Simulate API responses
+            if (url === '/api/cv') {
+                return Promise.resolve({
+                    json: () => Promise.resolve({
+                        cv1: Math.random() * 0.8 + 0.1,
+                        cv2: Math.random() * 0.8 + 0.1,
+                        cv3: Math.random() * 0.8 + 0.1,
+                        cv4: Math.random() * 0.8 + 0.1
+                    })
+                });
+            }
+            
+            if (url === '/api/weather') {
+                return Promise.resolve({
+                    json: () => Promise.resolve({
+                        temperature: 20 + Math.random() * 10,
+                        humidity: 50 + Math.random() * 40,
+                        pressure: 1000 + Math.random() * 30,
+                        windSpeed: Math.random() * 10,
+                        visibility: 5 + Math.random() * 15,
+                        cloudCover: Math.random() * 100,
+                        dewPoint: 10 + Math.random() * 10,
+                        moonPhase: (Date.now() / (29.5 * 24 * 60 * 60 * 1000)) % 1,
+                        solarElevation: Math.random() * 90,
+                        auroraActivity: Math.random(),
+                        solarWind: 300 + Math.random() * 200,
+                        lastUpdate: Date.now()
+                    })
+                });
+            }
+            
+            if (url === '/api/location' && options?.method === 'POST') {
+                console.log('Location update:', options.body);
+                return Promise.resolve({
+                    json: () => Promise.resolve({ status: 'ok' })
+                });
+            }
+            
+            if (url === '/config' && options?.method === 'POST') {
+                console.log('Config save:', options.body);
+                return Promise.resolve();
+            }
+            
+            // Fallback to original fetch for other URLs
+            return originalFetch.apply(this, arguments);
+        };
+    </script>
+    <script src="js/tem.js"></script>
+</body>
+</html>
