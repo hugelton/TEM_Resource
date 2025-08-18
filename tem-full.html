@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>The Earth Module</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    
+    <!-- TEM CSS -->
+    <link rel="stylesheet" href="https://hugelton.github.io/TEM_Resource/css/tem.css">
+    
+    <style>
+        /* Additional styles for Leaflet integration */
+        #map { 
+            height: 200px; 
+            border-radius: 8px; 
+            z-index: 1;
+        }
+        .leaflet-container {
+            background: #1a1a1a;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading" style="text-align:center;padding:50px;color:#888">
+        Loading TEM Interface...<br>
+        <small>If this doesn't load, check your internet connection</small>
+    </div>
+    <div id="app" style="display:none"></div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    
+    <!-- TEM JS with Leaflet support -->
+    <script src="https://hugelton.github.io/TEM_Resource/js/tem-leaflet.js"></script>
+</body>
+</html>
