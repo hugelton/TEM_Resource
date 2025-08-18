@@ -1,295 +1,315 @@
-/* The Earth Module - Rich UI JavaScript */
+// The Earth Module - Rich UI JavaScript
 
-class TEMController {
-    constructor() {
-        this.deviceStatus = null;
-        this.cvData = null;
-        this.updateInterval = null;
-        this.map = null;
-        this.pins = [];
-        
-        this.init();
-    }
+(function() {
+    'use strict';
+
+    // Configuration from backend
+    const config = window.TEM_CONFIG || {};
+    const initialData = window.TEM_DATA || {};
     
-    async init() {
-        console.log('🌍 THE EARTH MODULE - Initializing...');
+    // State
+    let currentData = {
+        cvValues: [0, 0, 0, 0],
+        temperature: 20,
+        humidity: 50,
+        pressure: 1013,
+        windSpeed: 0,
+        visibility: 10,
+        cloudCover: 0,
+        dewPoint: 15,
+        moonPhase: 0.5,
+        solarElevation: 45,
+        auroraActivity: 0,
+        solarWind: 400,
+        latitude: 35.6762,
+        longitude: 139.6503,
+        ...initialData
+    };
+
+    // Initialize
+    function init() {
+        console.log('TEM UI Initializing...');
         
-        // Start real-time updates
-        this.startUpdates();
+        // Set time-based background
+        updateBackground();
         
-        // Initialize map if on config page
-        if (document.getElementById('map')) {
-            await this.initMap();
-        }
+        // Build UI
+        buildInterface();
         
-        // Add event listeners
-        this.setupEventListeners();
+        // Start data updates
+        startUpdates();
         
-        console.log('✅ TEM Controller initialized');
+        // Mark as initialized
+        window.TEMInitialized = true;
+        
+        // Hide loading, show app
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
     }
-    
-    async startUpdates() {
-        // Initial update
-        await this.updateData();
+
+    // Update background based on time
+    function updateBackground() {
+        const hour = new Date().getHours();
+        let timeClass = 'time-night';
         
-        // Start interval updates
-        this.updateInterval = setInterval(async () => {
-            await this.updateData();
-        }, 2000);
+        if (hour >= 0 && hour < 4) timeClass = 'time-midnight';
+        else if (hour >= 4 && hour < 6) timeClass = 'time-dawn';
+        else if (hour >= 6 && hour < 8) timeClass = 'time-sunrise';
+        else if (hour >= 8 && hour < 12) timeClass = 'time-morning';
+        else if (hour >= 12 && hour < 16) timeClass = 'time-noon';
+        else if (hour >= 16 && hour < 18) timeClass = 'time-afternoon';
+        else if (hour >= 18 && hour < 20) timeClass = 'time-sunset';
+        else timeClass = 'time-night';
+        
+        document.body.className = timeClass;
     }
-    
-    async updateData() {
-        try {
-            // Fetch status and CV data in parallel
-            const [statusResponse, cvResponse] = await Promise.all([
-                fetch('/api/status'),
-                fetch('/api/cv')
-            ]);
+
+    // Build the interface
+    function buildInterface() {
+        const app = document.getElementById('app');
+        
+        app.innerHTML = `
+            <div class="header">
+                <h1>The Earth Module</h1>
+                <div class="device-id">Device: tem-${config.deviceID}</div>
+            </div>
             
-            this.deviceStatus = await statusResponse.json();
-            this.cvData = await cvResponse.json();
-            
-            this.updateUI();
-        } catch (error) {
-            console.error('Failed to update data:', error);
-            this.showError('Connection to TEM lost');
-        }
-    }
-    
-    updateUI() {
-        // Update device info
-        const deviceIDEl = document.getElementById('deviceID');
-        if (deviceIDEl && this.deviceStatus) {
-            deviceIDEl.textContent = this.deviceStatus.deviceID;
-        }
-        
-        const freeHeapEl = document.getElementById('freeHeap');
-        if (freeHeapEl && this.deviceStatus) {
-            freeHeapEl.textContent = `${this.deviceStatus.freeHeap.toLocaleString()} bytes`;
-        }
-        
-        const ipEl = document.getElementById('ipAddress');
-        if (ipEl && this.deviceStatus) {
-            ipEl.textContent = this.deviceStatus.ip;
-        }
-        
-        // Update CV meters
-        if (this.cvData) {
-            for (let i = 1; i <= 4; i++) {
-                const value = this.cvData[`cv${i}`] || 0;
-                const voltage = (value * 5).toFixed(2);
-                const percentage = (value * 100).toFixed(1);
+            <div class="container">
+                <!-- CV Outputs -->
+                <div class="grid" id="cv-grid">
+                    ${buildCVTiles()}
+                </div>
                 
-                const valueEl = document.getElementById(`cv${i}`);
-                const meterEl = document.getElementById(`meter${i}`);
+                <!-- Weather Data -->
+                <div class="grid" id="weather-grid">
+                    ${buildWeatherTiles()}
+                </div>
                 
-                if (valueEl) {
-                    valueEl.textContent = `${voltage}V`;
-                }
-                
-                if (meterEl) {
-                    meterEl.style.width = `${percentage}%`;
-                }
-            }
-        }
-        
-        // Update last update time
-        const lastUpdateEl = document.getElementById('lastUpdate');
-        if (lastUpdateEl) {
-            lastUpdateEl.textContent = new Date().toLocaleTimeString();
-        }
-    }
-    
-    async initMap() {
-        try {
-            // Check if map is already initialized
-            const mapEl = document.getElementById('map');
-            if (!mapEl || mapEl._leaflet_id) {
-                console.log('Map already initialized or element not found');
-                return;
-            }
-            
-            // Initialize Leaflet map with dark theme
-            this.map = L.map('map').setView([35.6762, 139.6503], 2);
-            
-            // Dark tile layer
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors',
-                maxZoom: 18
-            }).addTo(this.map);
-            
-            // Map click handler for setting single location pin
-            this.map.on('click', (e) => {
-                this.addPin(e.latlng.lat, e.latlng.lng);
-            });
-            
-            // Skip pin loading for TEM (pins managed by ESP32)
-            // await this.loadPins();
-            
-            console.log('🗺️ TEM Map initialized');
-        } catch (error) {
-            console.error('Failed to initialize map:', error);
-        }
-    }
-    
-    async addPin(lat, lng) {
-        // Simplified pin function - no name required, single pin per device
-        try {
-            const response = await fetch('/api/location', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `lat=${lat}&lng=${lng}`
-            });
-            
-            if (response.ok) {
-                this.showSuccess(`Location updated to ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
-                // Reload page to refresh weather data
-                setTimeout(() => location.reload(), 1500);
-            } else {
-                throw new Error('Failed to update location');
-            }
-        } catch (error) {
-            console.error('Failed to update location:', error);
-            this.showError('Failed to update location');
-        }
-    }
-    
-    async loadPins() {
-        // Disabled for TEM - pins are managed by ESP32 interface
-        console.log('Pin loading disabled for TEM');
-        return;
-        
-        // Original code commented out
-        // try {
-        //     const response = await fetch('/api/pins');
-        //     this.pins = await response.json();
-        //     
-        //     // Clear existing markers
-        //     this.map.eachLayer((layer) => {
-        //         if (layer instanceof L.Marker) {
-        //             this.map.removeLayer(layer);
-        //         }
-        //     });
-        //     
-        //     // Add markers for each pin
-        //     this.pins.forEach(pin => {
-        //         const marker = L.marker([pin.lat, pin.lon])
-        //             .addTo(this.map)
-        //             .bindPopup(`
-        //                 <strong>${pin.name}</strong><br>
-        //                 Lat: ${pin.lat.toFixed(4)}<br>
-        //                 Lng: ${pin.lon.toFixed(4)}
-        //             `);
-        //     });
-        //     
-        // } catch (error) {
-        //     console.error('Failed to load pins:', error);
-        // }
-    }
-    
-    setupEventListeners() {
-        // Force update button
-        const forceUpdateBtn = document.getElementById('forceUpdate');
-        if (forceUpdateBtn) {
-            forceUpdateBtn.addEventListener('click', () => {
-                this.updateData();
-                this.showSuccess('Data updated');
-            });
-        }
-        
-        // Test CV buttons
-        for (let i = 1; i <= 4; i++) {
-            const testBtn = document.getElementById(`testCV${i}`);
-            if (testBtn) {
-                testBtn.addEventListener('click', () => {
-                    this.testCV(i);
-                });
-            }
-        }
-    }
-    
-    async testCV(channel) {
-        try {
-            const response = await fetch(`/api/test/cv${channel}`, {
-                method: 'POST'
-            });
-            
-            if (response.ok) {
-                this.showSuccess(`CV ${channel} test pulse sent`);
-            } else {
-                throw new Error('Test failed');
-            }
-        } catch (error) {
-            console.error(`Failed to test CV ${channel}:`, error);
-            this.showError(`CV ${channel} test failed`);
-        }
-    }
-    
-    showSuccess(message) {
-        this.showNotification(message, 'success');
-    }
-    
-    showError(message) {
-        this.showNotification(message, 'error');
-    }
-    
-    showNotification(message, type = 'info') {
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.textContent = message;
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 15px 20px;
-            border-radius: 6px;
-            color: white;
-            font-weight: 500;
-            z-index: 1000;
-            opacity: 0;
-            transform: translateX(100%);
-            transition: all 0.3s ease;
-            background: ${type === 'success' ? '#4CAF50' : type === 'error' ? '#f44336' : '#2196F3'};
+                <!-- Location & Settings -->
+                <div class="grid" id="settings-grid">
+                    ${buildLocationTile()}
+                    ${buildSettingsTile()}
+                </div>
+            </div>
         `;
         
-        document.body.appendChild(notification);
-        
-        // Animate in
-        setTimeout(() => {
-            notification.style.opacity = '1';
-            notification.style.transform = 'translateX(0)';
-        }, 100);
-        
-        // Auto remove
-        setTimeout(() => {
-            notification.style.opacity = '0';
-            notification.style.transform = 'translateX(100%)';
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.parentNode.removeChild(notification);
-                }
-            }, 300);
-        }, 3000);
+        // Attach event handlers
+        attachEventHandlers();
     }
-    
-    destroy() {
-        if (this.updateInterval) {
-            clearInterval(this.updateInterval);
+
+    // Build CV output tiles
+    function buildCVTiles() {
+        let html = '';
+        const cvParams = ['Temperature', 'Humidity', 'Pressure', 'Wind Speed'];
+        
+        for (let i = 0; i < 4; i++) {
+            html += `
+                <div class="tile cv-tile">
+                    <div class="tile-title">CV ${i + 1} - ${cvParams[i]}</div>
+                    <div class="tile-value" id="cv${i + 1}-value">${(currentData.cvValues[i] * 5).toFixed(2)}</div>
+                    <div class="tile-unit">Volts</div>
+                    <div class="cv-bar">
+                        <div class="cv-fill" id="cv${i + 1}-bar" style="width: ${currentData.cvValues[i] * 100}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        return html;
+    }
+
+    // Build weather data tiles
+    function buildWeatherTiles() {
+        const weatherParams = [
+            { key: 'temperature', label: 'Temperature', unit: '°C', decimals: 1 },
+            { key: 'humidity', label: 'Humidity', unit: '%', decimals: 0 },
+            { key: 'pressure', label: 'Pressure', unit: 'hPa', decimals: 0 },
+            { key: 'windSpeed', label: 'Wind Speed', unit: 'm/s', decimals: 1 },
+            { key: 'visibility', label: 'Visibility', unit: 'km', decimals: 1 },
+            { key: 'cloudCover', label: 'Cloud Cover', unit: '%', decimals: 0 },
+            { key: 'dewPoint', label: 'Dew Point', unit: '°C', decimals: 1 },
+            { key: 'moonPhase', label: 'Moon Phase', unit: '', decimals: 2, transform: v => getMoonPhaseIcon(v) }
+        ];
+        
+        let html = '';
+        weatherParams.forEach(param => {
+            const value = currentData[param.key];
+            const displayValue = param.transform ? param.transform(value) : value.toFixed(param.decimals);
+            
+            html += `
+                <div class="tile">
+                    <div class="tile-title">${param.label}</div>
+                    <div class="tile-value" id="${param.key}-value">${displayValue}</div>
+                    <div class="tile-unit">${param.unit}</div>
+                </div>
+            `;
+        });
+        
+        return html;
+    }
+
+    // Build location tile
+    function buildLocationTile() {
+        return `
+            <div class="tile location-tile">
+                <div class="tile-title">Location</div>
+                <div class="tile-value" style="font-size: 16px;">
+                    <span id="lat-value">${currentData.latitude.toFixed(4)}</span>°, 
+                    <span id="lon-value">${currentData.longitude.toFixed(4)}</span>°
+                </div>
+                <div class="map-container" id="map">
+                    <!-- Map would go here if using Leaflet -->
+                    <div style="padding: 80px 20px; text-align: center; color: #666;">
+                        Click to set location
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Build settings tile
+    function buildSettingsTile() {
+        return `
+            <div class="tile settings-tile">
+                <div class="tile-title">API Configuration</div>
+                <div class="input-group">
+                    <label>OpenWeather API Key</label>
+                    <input type="password" id="weather-key" placeholder="Enter API key" value="${currentData.hasApiKey ? '********' : ''}">
+                </div>
+                <button class="btn" onclick="saveSettings()">Save Settings</button>
+                <button class="btn btn-secondary" onclick="location.href='/reset'" style="margin-left: 10px;">Reset WiFi</button>
+            </div>
+        `;
+    }
+
+    // Get moon phase icon
+    function getMoonPhaseIcon(phase) {
+        const icons = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'];
+        const index = Math.round(phase * 7);
+        return icons[index] || '🌕';
+    }
+
+    // Attach event handlers
+    function attachEventHandlers() {
+        // Map click handler (simplified)
+        const mapEl = document.getElementById('map');
+        if (mapEl) {
+            mapEl.addEventListener('click', function(e) {
+                // In a real implementation, this would use a proper map library
+                const rect = this.getBoundingClientRect();
+                const x = (e.clientX - rect.left) / rect.width;
+                const y = (e.clientY - rect.top) / rect.height;
+                
+                // Convert to lat/lon (very simplified)
+                const lat = 90 - (y * 180);
+                const lon = (x * 360) - 180;
+                
+                updateLocation(lat, lon);
+            });
         }
     }
-}
 
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    window.temController = new TEMController();
-});
+    // Save settings
+    window.saveSettings = function() {
+        const weatherKey = document.getElementById('weather-key').value;
+        
+        if (weatherKey && weatherKey !== '********') {
+            fetch('/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `weather_key=${encodeURIComponent(weatherKey)}&lat=${currentData.latitude}&lon=${currentData.longitude}`
+            }).then(() => {
+                alert('Settings saved!');
+            });
+        }
+    };
 
-// Cleanup on page unload
-window.addEventListener('beforeunload', () => {
-    if (window.temController) {
-        window.temController.destroy();
+    // Update location
+    function updateLocation(lat, lon) {
+        fetch('/api/location', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `lat=${lat}&lon=${lon}`
+        }).then(() => {
+            currentData.latitude = lat;
+            currentData.longitude = lon;
+            updateUI();
+        });
     }
-});
+
+    // Start periodic updates
+    function startUpdates() {
+        // Initial update
+        fetchData();
+        
+        // Periodic updates
+        setInterval(fetchData, config.updateInterval || 1000);
+        
+        // Update background every minute
+        setInterval(updateBackground, 60000);
+    }
+
+    // Fetch data from device
+    function fetchData() {
+        // Fetch CV values
+        fetch('/api/cv')
+            .then(r => r.json())
+            .then(data => {
+                currentData.cvValues = [
+                    data.cv1 || 0,
+                    data.cv2 || 0,
+                    data.cv3 || 0,
+                    data.cv4 || 0
+                ];
+                updateUI();
+            })
+            .catch(console.error);
+        
+        // Fetch weather data
+        fetch('/api/weather')
+            .then(r => r.json())
+            .then(data => {
+                Object.assign(currentData, data);
+                updateUI();
+            })
+            .catch(console.error);
+    }
+
+    // Update UI with current data
+    function updateUI() {
+        // Update CV values
+        for (let i = 0; i < 4; i++) {
+            const valueEl = document.getElementById(`cv${i + 1}-value`);
+            const barEl = document.getElementById(`cv${i + 1}-bar`);
+            
+            if (valueEl) valueEl.textContent = (currentData.cvValues[i] * 5).toFixed(2);
+            if (barEl) barEl.style.width = (currentData.cvValues[i] * 100) + '%';
+        }
+        
+        // Update weather values
+        const updates = {
+            'temperature-value': currentData.temperature.toFixed(1),
+            'humidity-value': currentData.humidity.toFixed(0),
+            'pressure-value': currentData.pressure.toFixed(0),
+            'windSpeed-value': currentData.windSpeed.toFixed(1),
+            'visibility-value': currentData.visibility.toFixed(1),
+            'cloudCover-value': currentData.cloudCover.toFixed(0),
+            'dewPoint-value': currentData.dewPoint.toFixed(1),
+            'moonPhase-value': getMoonPhaseIcon(currentData.moonPhase),
+            'lat-value': currentData.latitude.toFixed(4),
+            'lon-value': currentData.longitude.toFixed(4)
+        };
+        
+        for (const [id, value] of Object.entries(updates)) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        }
+    }
+
+    // Start when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
