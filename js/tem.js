@@ -9,7 +9,8 @@
     
     // State
     let currentData = {
-        cvValues: [0, 0, 0, 0],
+        cvValues: [0, 0],
+        gateValues: [0, 0],
         temperature: 20,
         humidity: 50,
         pressure: 1013,
@@ -71,7 +72,7 @@
         app.innerHTML = `
             <div class="header">
                 <h1>The Earth Module</h1>
-                <div class="device-id">Device: tem-${config.deviceID}</div>
+                <div class="device-id">Device: tem-${config.deviceID || 'unknown'}</div>
             </div>
             
             <div class="container">
@@ -97,19 +98,38 @@
         attachEventHandlers();
     }
 
-    // Build CV output tiles
+    // Build CV and GATE output tiles
     function buildCVTiles() {
         let html = '';
-        const cvParams = ['Temperature', 'Humidity', 'Pressure', 'Wind Speed'];
+        const cvParams = currentData.cvParams || [0, 1];
+        const gateParams = currentData.gateParams || [2, 3];
+        const paramNames = ['Temperature', 'Humidity', 'Pressure', 'Wind Speed', 'Visibility', 'Cloud Cover', 'Dew Point', 'Moon Phase', 'Solar Elevation', 'Aurora Activity', 'Solar Wind', 'UV Index'];
         
-        for (let i = 0; i < 4; i++) {
+        // CV outputs (2)
+        for (let i = 0; i < 2; i++) {
+            const paramName = paramNames[cvParams[i]] || 'Unknown';
             html += `
                 <div class="tile cv-tile">
-                    <div class="tile-title">CV ${i + 1} - ${cvParams[i]}</div>
+                    <div class="tile-title">CV ${i + 1} - ${paramName}</div>
                     <div class="tile-value" id="cv${i + 1}-value">${(currentData.cvValues[i] * 5).toFixed(2)}</div>
                     <div class="tile-unit">Volts</div>
                     <div class="cv-bar">
                         <div class="cv-fill" id="cv${i + 1}-bar" style="width: ${currentData.cvValues[i] * 100}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // GATE outputs (2)
+        for (let i = 0; i < 2; i++) {
+            const paramName = paramNames[gateParams[i]] || 'Unknown';
+            html += `
+                <div class="tile gate-tile">
+                    <div class="tile-title">GATE ${i + 1} - ${paramName}</div>
+                    <div class="tile-value" id="gate${i + 1}-value">${currentData.gateValues[i] ? 'HIGH' : 'LOW'}</div>
+                    <div class="tile-unit">5V</div>
+                    <div class="cv-bar">
+                        <div class="cv-fill gate-fill" id="gate${i + 1}-bar" style="width: ${currentData.gateValues[i] ? '100' : '0'}%; background: ${currentData.gateValues[i] ? '#4CAF50' : '#333'}"></div>
                     </div>
                 </div>
             `;
@@ -153,7 +173,10 @@
         return `
             <div class="tile location-tile">
                 <div class="tile-title">Location</div>
-                <div class="tile-value" style="font-size: 16px;">
+                <div class="tile-value" style="font-size: 18px; margin-bottom: 5px;">
+                    <span id="city-name">${currentData.cityName || currentData.city || 'Unknown'}</span>
+                </div>
+                <div class="tile-value" style="font-size: 14px; opacity: 0.8;">
                     <span id="lat-value">${currentData.latitude.toFixed(4)}</span>°, 
                     <span id="lon-value">${currentData.longitude.toFixed(4)}</span>°
                 </div>
@@ -174,7 +197,11 @@
                 <div class="tile-title">API Configuration</div>
                 <div class="input-group">
                     <label>OpenWeather API Key</label>
-                    <input type="password" id="weather-key" placeholder="Enter API key" value="${currentData.hasApiKey ? '********' : ''}">
+                    <input type="password" id="weather-key" placeholder="-" value="${currentData.hasApiKey ? '********' : ''}">
+                </div>
+                <div class="input-group">
+                    <label>NASA API Key</label>
+                    <input type="password" id="nasa-key" placeholder="-" value="${currentData.hasNasaKey ? '********' : ''}">
                 </div>
                 <button class="btn" onclick="saveSettings()">Save Settings</button>
                 <button class="btn btn-secondary" onclick="location.href='/reset'" style="margin-left: 10px;">Reset WiFi</button>
@@ -212,15 +239,37 @@
     // Save settings
     window.saveSettings = function() {
         const weatherKey = document.getElementById('weather-key').value;
+        const nasaKey = document.getElementById('nasa-key').value;
         
-        if (weatherKey && weatherKey !== '********') {
-            fetch('/config', {
+        const params = new URLSearchParams();
+        
+        // Only add keys if they're not masked values
+        if (weatherKey && weatherKey !== '********' && weatherKey !== '') {
+            params.append('openweather', weatherKey);
+        }
+        if (nasaKey && nasaKey !== '********' && nasaKey !== '') {
+            params.append('nasa', nasaKey);
+        }
+        
+        if (params.toString()) {
+            fetch('/api/keys', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `weather_key=${encodeURIComponent(weatherKey)}&lat=${currentData.latitude}&lon=${currentData.longitude}`
-            }).then(() => {
-                alert('Settings saved!');
+                body: params.toString()
+            }).then(response => {
+                if (response.ok) {
+                    alert('Settings saved!');
+                    // Refresh data to get updated weather
+                    fetchData();
+                } else {
+                    alert('Failed to save settings');
+                }
+            }).catch(err => {
+                console.error('Save settings error:', err);
+                alert('Error saving settings');
             });
+        } else {
+            alert('No changes to save');
         }
     };
 
@@ -257,9 +306,11 @@
             .then(data => {
                 currentData.cvValues = [
                     data.cv1 || 0,
-                    data.cv2 || 0,
-                    data.cv3 || 0,
-                    data.cv4 || 0
+                    data.cv2 || 0
+                ];
+                currentData.gateValues = [
+                    data.gate1 || 0,
+                    data.gate2 || 0
                 ];
                 updateUI();
             })
@@ -277,13 +328,22 @@
 
     // Update UI with current data
     function updateUI() {
-        // Update CV values
-        for (let i = 0; i < 4; i++) {
+        // Update CV values (only 2 CV outputs)
+        for (let i = 0; i < 2; i++) {
             const valueEl = document.getElementById(`cv${i + 1}-value`);
             const barEl = document.getElementById(`cv${i + 1}-bar`);
             
             if (valueEl) valueEl.textContent = (currentData.cvValues[i] * 5).toFixed(2);
             if (barEl) barEl.style.width = (currentData.cvValues[i] * 100) + '%';
+        }
+        
+        // Update GATE values (2 GATE outputs)
+        for (let i = 0; i < 2; i++) {
+            const valueEl = document.getElementById(`gate${i + 1}-value`);
+            const barEl = document.getElementById(`gate${i + 1}-bar`);
+            
+            if (valueEl) valueEl.textContent = currentData.gateValues[i] ? 'HIGH' : 'LOW';
+            if (barEl) barEl.style.width = currentData.gateValues[i] ? '100%' : '0%';
         }
         
         // Update weather values
@@ -297,7 +357,8 @@
             'dewPoint-value': currentData.dewPoint.toFixed(1),
             'moonPhase-value': getMoonPhaseIcon(currentData.moonPhase),
             'lat-value': currentData.latitude.toFixed(4),
-            'lon-value': currentData.longitude.toFixed(4)
+            'lon-value': currentData.longitude.toFixed(4),
+            'city-name': currentData.cityName || currentData.city || 'Unknown'
         };
         
         for (const [id, value] of Object.entries(updates)) {
