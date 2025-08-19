@@ -6,6 +6,9 @@
     // Configuration from backend
     const config = window.TEM_CONFIG || {};
     
+    // Set API endpoint from baseUrl or default to current origin
+    config.apiEndpoint = config.baseUrl || window.location.origin;
+    
     // State
     let currentData = {
         cvValues: [0, 0, 0, 0],
