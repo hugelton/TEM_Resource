@@ -6,8 +6,17 @@
     // Configuration from backend
     const config = window.TEM_CONFIG || {};
     
+    // Debug config
+    console.log('TEM_CONFIG received:', config);
+    
     // Set API endpoint
     config.apiEndpoint = config.baseUrl || window.location.origin;
+    
+    // Ensure deviceID exists
+    if (!config.deviceID) {
+        console.warn('Device ID not received from backend');
+        config.deviceID = 'unknown';
+    }
     
     // State
     let currentData = {
@@ -321,14 +330,24 @@
     // Initialize map
     function initMap() {
         if (typeof L === 'undefined') {
-            console.log('Leaflet not available');
+            console.log('Leaflet not available - retrying in 1 second');
+            setTimeout(initMap, 1000);
             return;
         }
         
         const mapEl = document.getElementById('map');
-        if (!mapEl) return;
+        if (!mapEl) {
+            console.log('Map element not found - retrying in 500ms');
+            setTimeout(initMap, 500);
+            return;
+        }
         
-        map = L.map('map').setView([currentData.latitude, currentData.longitude], 10);
+        try {
+            map = L.map('map').setView([currentData.latitude, currentData.longitude], 10);
+        } catch (e) {
+            console.error('Map initialization error:', e);
+            return;
+        }
         
         // Dark theme tiles
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
@@ -549,7 +568,16 @@
             
             // Update device info
             if (statusData) {
-                config.deviceID = statusData.deviceID || 'unknown';
+                if (statusData.deviceID) {
+                    config.deviceID = statusData.deviceID;
+                    // Update device ID display
+                    const deviceSpans = document.querySelectorAll('.device-info span:first-child');
+                    deviceSpans.forEach(span => {
+                        if (span.textContent.includes('Device:')) {
+                            span.textContent = `Device: tem-${statusData.deviceID}`;
+                        }
+                    });
+                }
                 updateDeviceInfo(statusData);
             }
             
@@ -650,10 +678,24 @@
             const ipEl = document.getElementById('wifi-ip');
             if (ipEl) ipEl.textContent = status.ip;
         }
+        if (status.ssid) {
+            const ssidEl = document.getElementById('wifi-ssid');
+            if (ssidEl) ssidEl.textContent = status.ssid;
+        }
+        if (status.rssi !== undefined) {
+            const signalEl = document.getElementById('wifi-signal');
+            if (signalEl) signalEl.textContent = `${status.rssi} dBm`;
+        }
         if (status.freeHeap) {
             const usage = 100 - (status.freeHeap / 520000 * 100);
             const flashEl = document.getElementById('flash-usage');
             if (flashEl) flashEl.textContent = `${usage.toFixed(0)}% used`;
+        }
+        if (status.uptime) {
+            const days = Math.floor(status.uptime / 86400);
+            const hours = Math.floor((status.uptime % 86400) / 3600);
+            const uptimeEl = document.getElementById('uptime');
+            if (uptimeEl) uptimeEl.textContent = days > 0 ? `${days}d ${hours}h` : `${hours}h`;
         }
     }
 
