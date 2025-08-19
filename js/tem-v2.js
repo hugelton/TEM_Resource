@@ -342,18 +342,43 @@
             return;
         }
         
-        try {
-            map = L.map('map').setView([currentData.latitude, currentData.longitude], 10);
-        } catch (e) {
-            console.error('Map initialization error:', e);
+        // Check if map is already initialized
+        if (map) {
+            console.log('Map already initialized');
             return;
         }
         
-        // Dark theme tiles
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap',
-            maxZoom: 18
-        }).addTo(map);
+        try {
+            console.log('Initializing map at:', currentData.latitude, currentData.longitude);
+            map = L.map('map', {
+                center: [currentData.latitude, currentData.longitude],
+                zoom: 10,
+                zoomControl: true,
+                attributionControl: false
+            });
+            
+            // Dark theme tiles with fallback
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap',
+                maxZoom: 18,
+                minZoom: 2,
+                tileSize: 256,
+                crossOrigin: true
+            }).addTo(map);
+            
+            // Force a resize after initialization
+            setTimeout(() => {
+                if (map) {
+                    map.invalidateSize();
+                    console.log('Map size invalidated');
+                }
+            }, 100);
+        } catch (e) {
+            console.error('Map initialization error:', e);
+            // Try again in 1 second
+            setTimeout(initMap, 1000);
+            return;
+        }
         
         // Current marker
         marker = L.marker([currentData.latitude, currentData.longitude]).addTo(map);
