@@ -1,0 +1,693 @@
+// The Earth Module - UI v2 JavaScript
+
+(function() {
+    'use strict';
+
+    // Configuration from backend
+    const config = window.TEM_CONFIG || {};
+    
+    // Set API endpoint
+    config.apiEndpoint = config.baseUrl || window.location.origin;
+    
+    // State
+    let currentData = {
+        cvValues: [0, 0],
+        gateValues: [0, 0],
+        cvParams: [0, 1],  // Temperature, Humidity
+        gateParams: [8, 3], // Rain/Snow, Wind
+        temperature: '-',
+        humidity: '-',
+        pressure: '-',
+        windSpeed: '-',
+        visibility: '-',
+        cloudCover: '-',
+        dewPoint: '-',
+        uvIndex: '-',
+        rain1h: 0,
+        snow1h: 0,
+        moonPhase: 0.5,
+        solarElevation: '-',
+        solarWindSpeed: '-',
+        kpIndex: '-',
+        latitude: 35.6762,
+        longitude: 139.6503,
+        cityName: 'Tokyo',
+        hasOpenWeatherKey: false,
+        hasNasaKey: false,
+        connectionStatus: 'offline'
+    };
+
+    // Parameter definitions
+    const parameters = {
+        cv: [
+            { id: 0, name: 'Temperature', unit: '°C', range: [-10, 40], category: 'weather' },
+            { id: 1, name: 'Humidity', unit: '%', range: [0, 100], category: 'weather' },
+            { id: 2, name: 'Pressure', unit: 'hPa', range: [950, 1050], category: 'weather' },
+            { id: 3, name: 'Wind Speed', unit: 'm/s', range: [0, 20], category: 'weather' },
+            { id: 4, name: 'Visibility', unit: 'km', range: [0, 10], category: 'weather' },
+            { id: 5, name: 'Cloud Cover', unit: '%', range: [0, 100], category: 'weather' },
+            { id: 6, name: 'Dew Point', unit: '°C', range: [-20, 30], category: 'weather' },
+            { id: 7, name: 'UV Index', unit: '', range: [0, 11], category: 'weather' },
+            { id: 10, name: 'Moon Phase', unit: '', range: [0, 1], category: 'celestial' },
+            { id: 11, name: 'Solar Elevation', unit: '°', range: [-90, 90], category: 'celestial' },
+            { id: 12, name: 'Solar Wind', unit: 'km/s', range: [250, 800], category: 'space' },
+            { id: 13, name: 'Kp Index', unit: '', range: [0, 9], category: 'space' }
+        ],
+        gate: [
+            { id: 8, name: 'Rain/Snow', logic: '>1mm ON, <0.2mm OFF', category: 'weather' },
+            { id: 3, name: 'Wind', logic: '>10m/s ON, <7m/s OFF', category: 'weather' },
+            { id: 11, name: 'Day/Night', logic: '>0° ON, <-5° OFF', category: 'celestial' },
+            { id: 13, name: 'Storm', logic: 'Kp>5 ON, Kp<4 OFF', category: 'space' },
+            { id: 14, name: 'Flare', logic: 'M+ ON, C- OFF', category: 'space' }
+        ]
+    };
+
+    let map = null;
+    let marker = null;
+    let updateInterval = null;
+
+    // Initialize
+    function init() {
+        console.log('TEM UI v2 Initializing...');
+        
+        // Build UI
+        buildInterface();
+        
+        // Initialize map
+        initMap();
+        
+        // Start data updates
+        startUpdates();
+        
+        // Attach event handlers
+        attachEventHandlers();
+        
+        // Hide loading, show app
+        const loading = document.getElementById('loading');
+        const app = document.getElementById('app');
+        if (loading) loading.style.display = 'none';
+        if (app) app.style.display = 'block';
+    }
+
+    // Build the interface
+    function buildInterface() {
+        const app = document.getElementById('app');
+        if (!app) return;
+        
+        app.innerHTML = `
+            <div class="header">
+                <h1>THE EARTH MODULE</h1>
+                <div class="device-info">
+                    <span>Device: tem-${config.deviceID || 'unknown'}</span>
+                    <span>Connection<span class="status-dot ${currentData.connectionStatus === 'connected' ? 'online' : 'offline'}" id="connection-status"></span></span>
+                    <span>API<span class="status-dot ${currentData.hasOpenWeatherKey ? 'online' : 'offline'}" id="api-status"></span></span>
+                </div>
+            </div>
+            
+            <!-- 1. CV/GATE Outputs -->
+            <div class="section">
+                <div class="section-header">
+                    <span class="section-number">1</span>
+                    <span class="section-title">CV / GATE Outputs</span>
+                </div>
+                <div class="outputs-grid">
+                    ${buildCVOutputs()}
+                    ${buildGateOutputs()}
+                </div>
+            </div>
+            
+            <!-- 2. Location Map -->
+            <div class="section">
+                <div class="section-header">
+                    <span class="section-number">2</span>
+                    <span class="section-title">Location</span>
+                </div>
+                <div class="map-controls">
+                    <input type="text" placeholder="Search city..." id="city-search">
+                    <button onclick="searchCity()">Search</button>
+                    <button onclick="getCurrentLocation()">📍 GPS</button>
+                </div>
+                <div id="map"></div>
+                <div class="map-info">
+                    <span><strong id="location">${currentData.cityName}</strong></span>
+                    <span><strong id="coords">${currentData.latitude.toFixed(4)}°, ${currentData.longitude.toFixed(4)}°</strong></span>
+                    <span style="color: #444;">Right-click to pin</span>
+                </div>
+            </div>
+            
+            <!-- 3. Environmental Data -->
+            <div class="section">
+                <div class="section-header">
+                    <span class="section-number">3</span>
+                    <span class="section-title">Environmental Data</span>
+                </div>
+                <div class="weather-grid">
+                    ${buildWeatherTiles()}
+                </div>
+            </div>
+            
+            <!-- 4. Configuration -->
+            <div class="section">
+                <div class="section-header">
+                    <span class="section-number">4</span>
+                    <span class="section-title">Configuration</span>
+                </div>
+                <div class="config-grid">
+                    ${buildConfigSection()}
+                </div>
+            </div>
+        `;
+    }
+
+    // Build CV outputs
+    function buildCVOutputs() {
+        let html = '';
+        for (let i = 0; i < 2; i++) {
+            const voltage = currentData.cvValues[i] === 0 ? '0.00' : (currentData.cvValues[i] * 5).toFixed(2);
+            const param = parameters.cv.find(p => p.id === currentData.cvParams[i]) || parameters.cv[0];
+            
+            html += `
+                <div class="output-card">
+                    <div class="output-type">CV ${i + 1}</div>
+                    <div class="output-value" id="cv${i + 1}-value">${voltage}V</div>
+                    <div class="output-bar">
+                        <div class="output-fill" id="cv${i + 1}-bar" style="width: ${currentData.cvValues[i] * 100}%"></div>
+                    </div>
+                    <select class="param-select" data-output="cv${i}" onchange="updateParam('cv', ${i}, this.value)">
+                        ${buildCVOptions(currentData.cvParams[i])}
+                    </select>
+                </div>
+            `;
+        }
+        return html;
+    }
+
+    // Build Gate outputs
+    function buildGateOutputs() {
+        let html = '';
+        for (let i = 0; i < 2; i++) {
+            const state = currentData.gateValues[i] > 0.5;
+            
+            html += `
+                <div class="output-card">
+                    <div class="output-type">GATE ${i + 1}</div>
+                    <div class="output-value ${state ? 'gate-high' : 'gate-low'}" id="gate${i + 1}-value">
+                        ${state ? 'HIGH' : 'LOW'}
+                    </div>
+                    <div class="output-bar">
+                        <div class="output-fill" id="gate${i + 1}-bar" style="width: ${state ? '100' : '0'}%"></div>
+                    </div>
+                    <select class="param-select" data-output="gate${i}" onchange="updateParam('gate', ${i}, this.value)">
+                        ${buildGateOptions(currentData.gateParams[i])}
+                    </select>
+                </div>
+            `;
+        }
+        return html;
+    }
+
+    // Build CV parameter options
+    function buildCVOptions(selected) {
+        let html = '';
+        const categories = { weather: '── Weather ──', celestial: '── Celestial ──', space: '── Space ──' };
+        
+        for (const [cat, label] of Object.entries(categories)) {
+            const params = parameters.cv.filter(p => p.category === cat);
+            if (params.length > 0) {
+                html += `<optgroup label="${label}">`;
+                params.forEach(p => {
+                    html += `<option value="${p.id}" ${p.id === selected ? 'selected' : ''}>
+                        ${p.name} [${p.range[0]},${p.range[1]}${p.unit}]
+                    </option>`;
+                });
+                html += '</optgroup>';
+            }
+        }
+        return html;
+    }
+
+    // Build Gate parameter options
+    function buildGateOptions(selected) {
+        let html = '<optgroup label="── Gate Logic ──">';
+        parameters.gate.forEach(p => {
+            html += `<option value="${p.id}" ${p.id === selected ? 'selected' : ''}>
+                ${p.name} [${p.logic}]
+            </option>`;
+        });
+        html += '</optgroup>';
+        return html;
+    }
+
+    // Build weather tiles
+    function buildWeatherTiles() {
+        const tiles = [
+            { key: 'temperature', label: 'Temperature', unit: '°C', decimals: 1 },
+            { key: 'humidity', label: 'Humidity', unit: '%', decimals: 0 },
+            { key: 'pressure', label: 'Pressure', unit: 'hPa', decimals: 0 },
+            { key: 'windSpeed', label: 'Wind', unit: 'm/s', decimals: 1 },
+            { key: 'visibility', label: 'Visibility', unit: 'km', decimals: 1 },
+            { key: 'cloudCover', label: 'Clouds', unit: '%', decimals: 0 },
+            { key: 'uvIndex', label: 'UV Index', unit: '', decimals: 0 },
+            { key: 'moonPhase', label: 'Moon', unit: '', transform: getMoonIcon },
+            { key: 'solarElevation', label: 'Sun Angle', unit: '°', decimals: 0 },
+            { key: 'solarWindSpeed', label: 'Solar Wind', unit: 'km/s', decimals: 0 },
+            { key: 'kpIndex', label: 'Kp Index', unit: '', decimals: 0 },
+            { key: 'dewPoint', label: 'Dew Point', unit: '°C', decimals: 1 }
+        ];
+        
+        let html = '';
+        tiles.forEach(tile => {
+            const value = currentData[tile.key];
+            let displayValue = '-';
+            
+            if (value !== '-' && value !== undefined && value !== null) {
+                if (tile.transform) {
+                    displayValue = tile.transform(value);
+                } else if (typeof value === 'number') {
+                    displayValue = value.toFixed(tile.decimals);
+                } else {
+                    displayValue = value;
+                }
+            }
+            
+            html += `
+                <div class="weather-tile">
+                    <h4>${tile.label}</h4>
+                    <div class="value" id="${tile.key}-value">
+                        ${displayValue}${tile.unit ? `<span class="unit">${tile.unit}</span>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        return html;
+    }
+
+    // Build configuration section
+    function buildConfigSection() {
+        return `
+            <div class="config-group">
+                <h3>API Keys</h3>
+                <input type="password" id="openweather-key" placeholder="OpenWeather API Key" 
+                       value="${currentData.hasOpenWeatherKey ? '••••••••••••' : ''}">
+                <input type="password" id="nasa-key" placeholder="NASA API Key (optional)"
+                       value="${currentData.hasNasaKey ? '••••••••••••' : ''}">
+                <button class="btn-primary" onclick="saveAPIKeys()">Save Keys</button>
+            </div>
+            <div class="config-group">
+                <h3>Network</h3>
+                <div class="info-text">SSID: <strong id="wifi-ssid">-</strong></div>
+                <div class="info-text">IP: <strong id="wifi-ip">-</strong></div>
+                <div class="info-text">Signal: <strong id="wifi-signal">-</strong></div>
+                <button class="btn-danger" onclick="resetWiFi()" style="margin-top: 10px;">Reset WiFi</button>
+            </div>
+            <div class="config-group">
+                <h3>System</h3>
+                <div class="info-text">Version: <strong>1.0.0</strong></div>
+                <div class="info-text">Flash: <strong id="flash-usage">-</strong></div>
+                <div class="info-text">Uptime: <strong id="uptime">-</strong></div>
+                <button class="btn-danger" onclick="restartDevice()" style="margin-top: 10px;">Restart</button>
+            </div>
+        `;
+    }
+
+    // Get moon phase icon
+    function getMoonIcon(phase) {
+        const icons = ['🌑', '🌒', '🌓', '🌔', '🌕', '🌖', '🌗', '🌘'];
+        const index = Math.round(phase * 7);
+        return icons[index] || '🌕';
+    }
+
+    // Initialize map
+    function initMap() {
+        if (typeof L === 'undefined') {
+            console.log('Leaflet not available');
+            return;
+        }
+        
+        const mapEl = document.getElementById('map');
+        if (!mapEl) return;
+        
+        map = L.map('map').setView([currentData.latitude, currentData.longitude], 10);
+        
+        // Dark theme tiles
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap',
+            maxZoom: 18
+        }).addTo(map);
+        
+        // Current marker
+        marker = L.marker([currentData.latitude, currentData.longitude]).addTo(map);
+        
+        // Map interactions
+        map.on('click', function(e) {
+            marker.setLatLng(e.latlng);
+            updateLocation(e.latlng.lat, e.latlng.lng);
+        });
+        
+        // Right-click to pin
+        map.on('contextmenu', function(e) {
+            L.DomEvent.preventDefault(e);
+            marker.setLatLng(e.latlng);
+            updateLocation(e.latlng.lat, e.latlng.lng, true);
+            marker.bindPopup('Location pinned').openPopup();
+            setTimeout(() => marker.closePopup(), 2000);
+        });
+    }
+
+    // Update location
+    function updateLocation(lat, lng, save = false) {
+        currentData.latitude = lat;
+        currentData.longitude = lng;
+        
+        // Update display
+        const coordsEl = document.getElementById('coords');
+        if (coordsEl) {
+            coordsEl.textContent = `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`;
+        }
+        
+        // Reverse geocode
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+            .then(r => r.json())
+            .then(data => {
+                const city = data.address.city || data.address.town || data.address.village || 'Unknown';
+                const country = data.address.country || '';
+                currentData.cityName = city;
+                
+                const locationEl = document.getElementById('location');
+                if (locationEl) {
+                    locationEl.textContent = `${city}, ${country}`;
+                }
+            })
+            .catch(err => console.error('Geocoding error:', err));
+        
+        // Save to device if requested
+        if (save) {
+            fetch(`${config.apiEndpoint}/api/location`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `lat=${lat}&lng=${lng}`
+            }).then(response => {
+                if (response.ok) {
+                    showNotification('Location saved', 'success');
+                }
+            }).catch(err => console.error('Location save error:', err));
+        }
+    }
+
+    // Search city
+    window.searchCity = function() {
+        const query = document.getElementById('city-search').value;
+        if (!query) return;
+        
+        fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`)
+            .then(r => r.json())
+            .then(data => {
+                if (data && data[0]) {
+                    const lat = parseFloat(data[0].lat);
+                    const lng = parseFloat(data[0].lon);
+                    map.setView([lat, lng], 10);
+                    marker.setLatLng([lat, lng]);
+                    updateLocation(lat, lng, true);
+                }
+            })
+            .catch(err => console.error('Search error:', err));
+    };
+
+    // Get current location
+    window.getCurrentLocation = function() {
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(function(position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                map.setView([lat, lng], 10);
+                marker.setLatLng([lat, lng]);
+                updateLocation(lat, lng, true);
+            }, function(error) {
+                showNotification('Location access denied', 'error');
+            });
+        }
+    };
+
+    // Update parameter assignment
+    window.updateParam = function(type, index, value) {
+        const paramId = parseInt(value);
+        
+        if (type === 'cv') {
+            currentData.cvParams[index] = paramId;
+        } else if (type === 'gate') {
+            currentData.gateParams[index] = paramId;
+        }
+        
+        // Send to device
+        const data = new URLSearchParams();
+        data.append(`${type}${index + 1}`, paramId);
+        
+        fetch(`${config.apiEndpoint}/api/params`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: data
+        }).then(response => {
+            if (response.ok) {
+                showNotification(`${type.toUpperCase()} ${index + 1} updated`, 'success');
+            }
+        }).catch(err => console.error('Param update error:', err));
+    };
+
+    // Save API keys
+    window.saveAPIKeys = function() {
+        const weatherKey = document.getElementById('openweather-key').value;
+        const nasaKey = document.getElementById('nasa-key').value;
+        
+        if (!weatherKey || weatherKey === '••••••••••••') {
+            showNotification('Please enter OpenWeather API key', 'error');
+            return;
+        }
+        
+        const data = new URLSearchParams();
+        data.append('openweather', weatherKey);
+        if (nasaKey && nasaKey !== '••••••••••••') {
+            data.append('nasa', nasaKey);
+        }
+        
+        fetch(`${config.apiEndpoint}/api/keys`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: data
+        }).then(response => {
+            if (response.ok) {
+                showNotification('API keys saved', 'success');
+                currentData.hasOpenWeatherKey = true;
+                if (nasaKey) currentData.hasNasaKey = true;
+                updateAPIStatus();
+            } else {
+                showNotification('Failed to save API keys', 'error');
+            }
+        }).catch(err => {
+            console.error('API key save error:', err);
+            showNotification('Failed to save API keys', 'error');
+        });
+    };
+
+    // Reset WiFi
+    window.resetWiFi = function() {
+        if (!confirm('Reset WiFi settings? Device will restart in AP mode.')) return;
+        
+        fetch(`${config.apiEndpoint}/api/reset-wifi`, {
+            method: 'POST'
+        }).then(() => {
+            showNotification('WiFi reset. Device restarting...', 'success');
+        }).catch(err => {
+            console.error('WiFi reset error:', err);
+            showNotification('Failed to reset WiFi', 'error');
+        });
+    };
+
+    // Restart device
+    window.restartDevice = function() {
+        if (!confirm('Restart device?')) return;
+        
+        fetch(`${config.apiEndpoint}/api/restart`, {
+            method: 'POST'
+        }).then(() => {
+            showNotification('Device restarting...', 'success');
+        }).catch(err => {
+            console.error('Restart error:', err);
+        });
+    };
+
+    // Fetch data from device
+    function fetchData() {
+        Promise.all([
+            fetch(`${config.apiEndpoint}/api/cv`).then(r => r.json()).catch(() => null),
+            fetch(`${config.apiEndpoint}/api/weather`).then(r => r.json()).catch(() => null),
+            fetch(`${config.apiEndpoint}/api/status`).then(r => r.json()).catch(() => null),
+            fetch(`${config.apiEndpoint}/api/keys`).then(r => r.json()).catch(() => null)
+        ]).then(([cvData, weatherData, statusData, keysData]) => {
+            // Update connection status
+            currentData.connectionStatus = 'connected';
+            updateConnectionStatus();
+            
+            // Update CV/GATE values
+            if (cvData) {
+                currentData.cvValues = [cvData.cv1 || 0, cvData.cv2 || 0];
+                currentData.gateValues = [cvData.gate1 || 0, cvData.gate2 || 0];
+                currentData.cvParams = [cvData.cv1param || 0, cvData.cv2param || 1];
+                currentData.gateParams = [cvData.gate1param || 8, cvData.gate2param || 3];
+                updateOutputDisplays();
+            }
+            
+            // Update weather data
+            if (weatherData) {
+                Object.assign(currentData, weatherData);
+                updateWeatherDisplays();
+            }
+            
+            // Update device info
+            if (statusData) {
+                config.deviceID = statusData.deviceID || 'unknown';
+                updateDeviceInfo(statusData);
+            }
+            
+            // Update API key status
+            if (keysData) {
+                currentData.hasOpenWeatherKey = keysData.hasOpenWeather;
+                currentData.hasNasaKey = keysData.hasNasa;
+                updateAPIStatus();
+            }
+        }).catch(error => {
+            console.error('Fetch error:', error);
+            currentData.connectionStatus = 'offline';
+            updateConnectionStatus();
+        });
+    }
+
+    // Update output displays
+    function updateOutputDisplays() {
+        // Update CV displays
+        for (let i = 0; i < 2; i++) {
+            const valueEl = document.getElementById(`cv${i + 1}-value`);
+            const barEl = document.getElementById(`cv${i + 1}-bar`);
+            
+            if (valueEl) {
+                const voltage = (currentData.cvValues[i] * 5).toFixed(2);
+                valueEl.textContent = `${voltage}V`;
+            }
+            if (barEl) {
+                barEl.style.width = `${currentData.cvValues[i] * 100}%`;
+            }
+        }
+        
+        // Update Gate displays
+        for (let i = 0; i < 2; i++) {
+            const valueEl = document.getElementById(`gate${i + 1}-value`);
+            const barEl = document.getElementById(`gate${i + 1}-bar`);
+            const state = currentData.gateValues[i] > 0.5;
+            
+            if (valueEl) {
+                valueEl.textContent = state ? 'HIGH' : 'LOW';
+                valueEl.className = `output-value ${state ? 'gate-high' : 'gate-low'}`;
+            }
+            if (barEl) {
+                barEl.style.width = state ? '100%' : '0%';
+            }
+        }
+    }
+
+    // Update weather displays
+    function updateWeatherDisplays() {
+        const updates = {
+            'temperature-value': currentData.temperature,
+            'humidity-value': currentData.humidity,
+            'pressure-value': currentData.pressure,
+            'windSpeed-value': currentData.windSpeed,
+            'visibility-value': currentData.visibility,
+            'cloudCover-value': currentData.cloudCover,
+            'uvIndex-value': currentData.uvIndex,
+            'dewPoint-value': currentData.dewPoint,
+            'solarElevation-value': currentData.solarElevation,
+            'solarWindSpeed-value': currentData.solarWindSpeed,
+            'kpIndex-value': currentData.kpIndex
+        };
+        
+        for (const [id, value] of Object.entries(updates)) {
+            const el = document.getElementById(id);
+            if (el && value !== '-' && value !== undefined) {
+                el.textContent = typeof value === 'number' ? value.toFixed(1) : value;
+            }
+        }
+        
+        // Update moon phase
+        const moonEl = document.getElementById('moonPhase-value');
+        if (moonEl) {
+            moonEl.textContent = getMoonIcon(currentData.moonPhase);
+        }
+    }
+
+    // Update connection status
+    function updateConnectionStatus() {
+        const dot = document.getElementById('connection-status');
+        if (dot) {
+            dot.className = `status-dot ${currentData.connectionStatus === 'connected' ? 'online' : 'offline'}`;
+        }
+    }
+
+    // Update API status
+    function updateAPIStatus() {
+        const dot = document.getElementById('api-status');
+        if (dot) {
+            dot.className = `status-dot ${currentData.hasOpenWeatherKey ? 'online' : 'offline'}`;
+        }
+    }
+
+    // Update device info
+    function updateDeviceInfo(status) {
+        if (status.ip) {
+            const ipEl = document.getElementById('wifi-ip');
+            if (ipEl) ipEl.textContent = status.ip;
+        }
+        if (status.freeHeap) {
+            const usage = 100 - (status.freeHeap / 520000 * 100);
+            const flashEl = document.getElementById('flash-usage');
+            if (flashEl) flashEl.textContent = `${usage.toFixed(0)}% used`;
+        }
+    }
+
+    // Show notification
+    function showNotification(message, type = 'info') {
+        console.log(`[${type}] ${message}`);
+        // TODO: Implement visual notification
+    }
+
+    // Attach event handlers
+    function attachEventHandlers() {
+        const searchInput = document.getElementById('city-search');
+        if (searchInput) {
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    window.searchCity();
+                }
+            });
+        }
+    }
+
+    // Start periodic updates
+    function startUpdates() {
+        fetchData();
+        updateInterval = setInterval(fetchData, 2000);
+    }
+
+    // Cleanup
+    window.addEventListener('beforeunload', () => {
+        if (updateInterval) {
+            clearInterval(updateInterval);
+        }
+    });
+
+    // Start when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
