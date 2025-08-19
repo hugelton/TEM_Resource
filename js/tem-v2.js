@@ -370,13 +370,17 @@
         fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
             .then(r => r.json())
             .then(data => {
-                const city = data.address.city || data.address.town || data.address.village || 'Unknown';
-                const country = data.address.country || '';
-                currentData.cityName = city;
-                
-                const locationEl = document.getElementById('location');
-                if (locationEl) {
-                    locationEl.textContent = `${city}, ${country}`;
+                if (data && data.address) {
+                    const city = data.address.city || data.address.town || data.address.village || 'Unknown';
+                    const country = data.address.country || '';
+                    currentData.cityName = city;
+                    
+                    const locationEl = document.getElementById('location');
+                    if (locationEl) {
+                        locationEl.textContent = `${city}, ${country}`;
+                    }
+                } else {
+                    console.warn('No address data in geocoding response');
                 }
             })
             .catch(err => console.error('Geocoding error:', err));
