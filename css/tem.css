@@ -227,11 +227,32 @@ body.time-night { background: linear-gradient(135deg, #04040A 0%, #020303 100%);
     margin-right: 5px;
 }
 
-.status.online { background: #00ff88; }
-.status.offline { background: #ff4444; }
+.status.online { 
+    background: #00ff88;
+    color: #00ff88;
+}
+.status.offline { 
+    background: #ff4444;
+    color: #ff4444;
+}
 .status.updating { 
     background: #ffaa00;
     animation: pulse 1s infinite;
+}
+
+/* API Status Indicator */
+.api-status-indicator {
+    margin-left: 15px;
+    font-size: 14px;
+    color: #888;
+}
+
+.api-status-indicator .status {
+    width: auto;
+    height: auto;
+    background: none;
+    font-size: 16px;
+    vertical-align: middle;
 }
 
 @keyframes pulse {
