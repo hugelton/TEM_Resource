@@ -135,6 +135,7 @@
                     <input type="text" placeholder="Search city..." id="city-search">
                     <button onclick="searchCity()">Search</button>
                     <button onclick="getCurrentLocation()">📍 GPS</button>
+                    <button onclick="setAsDefault()" class="btn-default">⭐ Set as Default</button>
                 </div>
                 <div id="map"></div>
                 <div class="map-info">
@@ -356,9 +357,13 @@
         }
         
         try {
-            console.log('Initializing map at:', currentData.latitude, currentData.longitude);
+            // Use saved location if available, otherwise use current data
+            const lat = currentData.latitude || 35.6762;
+            const lng = currentData.longitude || 139.6503;
+            console.log('Initializing map at:', lat, lng);
+            
             map = L.map('map', {
-                center: [currentData.latitude, currentData.longitude],
+                center: [lat, lng],
                 zoom: 10,
                 zoomControl: true,
                 attributionControl: false
@@ -396,8 +401,8 @@
             className: 'custom-marker'
         });
         
-        // Current marker with custom icon
-        marker = L.marker([currentData.latitude, currentData.longitude], {icon: greenIcon}).addTo(map);
+        // Current marker with custom icon (use same lat/lng as map)
+        marker = L.marker([lat, lng], {icon: greenIcon}).addTo(map);
         
         // Map interactions
         map.on('click', function(e) {
@@ -476,6 +481,40 @@
                 }
             })
             .catch(err => console.error('Search error:', err));
+    };
+
+    // Set current location as default
+    window.setAsDefault = function() {
+        console.log('Setting default location:', currentData.latitude, currentData.longitude);
+        
+        // Send location to device to save
+        fetch(`${config.apiEndpoint}/api/location`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                latitude: currentData.latitude,
+                longitude: currentData.longitude,
+                save: true  // Indicate this should be saved permanently
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                // Show confirmation
+                const btn = document.querySelector('.btn-default');
+                if (btn) {
+                    const originalText = btn.textContent;
+                    btn.textContent = '✅ Saved!';
+                    btn.style.background = 'rgba(0,255,136,0.3)';
+                    setTimeout(() => {
+                        btn.textContent = originalText;
+                        btn.style.background = '';
+                    }, 2000);
+                }
+                console.log('Default location saved successfully');
+            }
+        })
+        .catch(err => console.error('Failed to save default location:', err));
     };
 
     // Get current location
@@ -807,7 +846,7 @@
         updateInterval = setInterval(fetchData, 2000);
     }
     
-    // Fetch device status including device ID
+    // Fetch device status including device ID and saved location
     function fetchDeviceStatus() {
         fetch(`${config.apiEndpoint}/api/status`)
             .then(response => response.json())
@@ -821,6 +860,34 @@
                         el.textContent = `tem-${data.deviceID}.local`;
                     });
                 }
+                
+                // Load saved location from device
+                if (data.latitude !== undefined && data.longitude !== undefined) {
+                    console.log('Loading saved location:', data.latitude, data.longitude);
+                    currentData.latitude = data.latitude;
+                    currentData.longitude = data.longitude;
+                    
+                    // Update map if already initialized
+                    if (map && marker) {
+                        map.setView([data.latitude, data.longitude], map.getZoom());
+                        marker.setLatLng([data.latitude, data.longitude]);
+                    }
+                    
+                    // Update coordinate display
+                    const coordsEl = document.getElementById('coords');
+                    if (coordsEl) {
+                        coordsEl.textContent = `${data.latitude.toFixed(4)}°, ${data.longitude.toFixed(4)}°`;
+                    }
+                }
+                
+                if (data.cityName) {
+                    currentData.cityName = data.cityName;
+                    const locationEl = document.getElementById('location');
+                    if (locationEl) {
+                        locationEl.textContent = data.cityName;
+                    }
+                }
+                
                 updateDeviceInfo(data);
             })
             .catch(err => console.error('Failed to fetch device status:', err));
