@@ -359,10 +359,10 @@
                 attributionControl: false
             });
             
-            // Dark theme tiles with fallback
-            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap',
-                maxZoom: 18,
+            // High contrast dark map - Stadia Alidade Smooth Dark
+            L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
+                attribution: '© Stadia Maps © OpenStreetMap',
+                maxZoom: 20,
                 minZoom: 2,
                 tileSize: 256,
                 crossOrigin: true
