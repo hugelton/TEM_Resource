@@ -431,9 +431,26 @@ body {
     opacity: 1 !important;
 }
 
-/* Add green glow to marker */
-.leaflet-marker-icon {
-    filter: drop-shadow(0 0 10px rgba(0,255,136,0.5));
+/* Custom marker styles */
+.custom-marker {
+    background: transparent !important;
+    border: none !important;
+}
+
+.custom-marker > div {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        box-shadow: 0 0 0 2px #00ff88, 0 0 20px rgba(0,255,136,0.6);
+    }
+    50% {
+        box-shadow: 0 0 0 2px #00ff88, 0 0 30px rgba(0,255,136,0.8);
+    }
+    100% {
+        box-shadow: 0 0 0 2px #00ff88, 0 0 20px rgba(0,255,136,0.6);
+    }
 }
 
 .leaflet-popup-content-wrapper {

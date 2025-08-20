@@ -382,8 +382,17 @@
             return;
         }
         
-        // Current marker
-        marker = L.marker([currentData.latitude, currentData.longitude]).addTo(map);
+        // Create custom green flat marker icon
+        const greenIcon = L.divIcon({
+            html: '<div style="background: #00ff88; width: 24px; height: 24px; border-radius: 50%; border: 3px solid #000; box-shadow: 0 0 0 2px #00ff88;"></div>',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
+            popupAnchor: [0, -15],
+            className: 'custom-marker'
+        });
+        
+        // Current marker with custom icon
+        marker = L.marker([currentData.latitude, currentData.longitude], {icon: greenIcon}).addTo(map);
         
         // Map interactions
         map.on('click', function(e) {
