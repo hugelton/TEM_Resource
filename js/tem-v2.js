@@ -488,19 +488,18 @@
     window.setAsDefault = function() {
         console.log('Setting default location:', currentData.latitude, currentData.longitude);
         
-        // Send location to device to save
-        fetch(`${config.apiEndpoint}/api/location`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({
-                latitude: currentData.latitude,
-                longitude: currentData.longitude,
-                save: true  // Indicate this should be saved permanently
-            })
+        // Send location to device to save (using URL parameters as firmware expects)
+        const params = new URLSearchParams({
+            lat: currentData.latitude,
+            lng: currentData.longitude
+        });
+        
+        fetch(`${config.apiEndpoint}/api/location?${params}`, {
+            method: 'POST'
         })
-        .then(response => response.json())
+        .then(response => response.text())
         .then(data => {
-            if (data.status === 'ok') {
+            if (data === 'Location updated') {
                 // Show confirmation
                 const btn = document.querySelector('.btn-default');
                 if (btn) {
