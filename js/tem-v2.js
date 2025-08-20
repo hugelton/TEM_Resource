@@ -666,9 +666,8 @@
         Promise.all([
             fetch(`${config.apiEndpoint}/api/cv`).then(r => r.json()).catch(() => null),
             fetch(`${config.apiEndpoint}/api/weather`).then(r => r.json()).catch(() => null),
-            fetch(`${config.apiEndpoint}/api/status`).then(r => r.json()).catch(() => null),
-            fetch(`${config.apiEndpoint}/api/keys`).then(r => r.json()).catch(() => null)
-        ]).then(([cvData, weatherData, statusData, keysData]) => {
+            fetch(`${config.apiEndpoint}/api/status`).then(r => r.json()).catch(() => null)
+        ]).then(([cvData, weatherData, statusData]) => {
             // Update connection status
             currentData.connectionStatus = 'connected';
             updateConnectionStatus();
@@ -703,12 +702,7 @@
                 updateDeviceInfo(statusData);
             }
             
-            // Update API key status
-            if (keysData) {
-                currentData.hasOpenWeatherKey = keysData.hasOpenWeather;
-                currentData.hasNasaKey = keysData.hasNasa;
-                updateAPIStatus();
-            }
+            // API key status is now only fetched once at startup
         }).catch(error => {
             console.error('Fetch error:', error);
             currentData.connectionStatus = 'offline';
