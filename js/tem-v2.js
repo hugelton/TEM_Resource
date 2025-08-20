@@ -175,11 +175,13 @@
         for (let i = 0; i < 2; i++) {
             const voltage = currentData.cvValues[i] === 0 ? '0.00' : (currentData.cvValues[i] * 5).toFixed(2);
             const param = parameters.cv.find(p => p.id === currentData.cvParams[i]) || parameters.cv[0];
+            const actualValue = getActualParameterValue(currentData.cvParams[i]);
             
             html += `
                 <div class="output-card">
                     <div class="output-type">CV ${i + 1}</div>
                     <div class="output-value" id="cv${i + 1}-value">${voltage}V</div>
+                    <div class="output-actual" id="cv${i + 1}-actual">${actualValue}</div>
                     <div class="output-bar">
                         <div class="output-fill" id="cv${i + 1}-bar" style="width: ${currentData.cvValues[i] * 100}%"></div>
                     </div>
@@ -197,6 +199,7 @@
         let html = '';
         for (let i = 0; i < 2; i++) {
             const state = currentData.gateValues[i] > 0.5;
+            const actualValue = getActualParameterValue(currentData.gateParams[i]);
             
             html += `
                 <div class="output-card">
@@ -204,6 +207,7 @@
                     <div class="output-value ${state ? 'gate-high' : 'gate-low'}" id="gate${i + 1}-value">
                         ${state ? 'HIGH' : 'LOW'}
                     </div>
+                    <div class="output-actual" id="gate${i + 1}-actual">${actualValue}</div>
                     <div class="output-bar">
                         <div class="output-fill" id="gate${i + 1}-bar" style="width: ${state ? '100' : '0'}%"></div>
                     </div>
@@ -717,11 +721,15 @@
         // Update CV displays
         for (let i = 0; i < 2; i++) {
             const valueEl = document.getElementById(`cv${i + 1}-value`);
+            const actualEl = document.getElementById(`cv${i + 1}-actual`);
             const barEl = document.getElementById(`cv${i + 1}-bar`);
             
             if (valueEl) {
                 const voltage = (currentData.cvValues[i] * 5).toFixed(2);
                 valueEl.textContent = `${voltage}V`;
+            }
+            if (actualEl) {
+                actualEl.textContent = getActualParameterValue(currentData.cvParams[i]);
             }
             if (barEl) {
                 barEl.style.width = `${currentData.cvValues[i] * 100}%`;
@@ -731,6 +739,7 @@
         // Update Gate displays
         for (let i = 0; i < 2; i++) {
             const valueEl = document.getElementById(`gate${i + 1}-value`);
+            const actualEl = document.getElementById(`gate${i + 1}-actual`);
             const barEl = document.getElementById(`gate${i + 1}-bar`);
             const state = currentData.gateValues[i] > 0.5;
             
@@ -738,12 +747,42 @@
                 valueEl.textContent = state ? 'HIGH' : 'LOW';
                 valueEl.className = `output-value ${state ? 'gate-high' : 'gate-low'}`;
             }
+            if (actualEl) {
+                actualEl.textContent = getActualParameterValue(currentData.gateParams[i]);
+            }
             if (barEl) {
                 barEl.style.width = state ? '100%' : '0%';
             }
         }
     }
 
+    // Get actual parameter value
+    function getActualParameterValue(paramId) {
+        const paramMap = {
+            0: { value: currentData.temperature, unit: '°C' },  // Temperature
+            1: { value: currentData.humidity, unit: '%' },      // Humidity
+            2: { value: currentData.pressure, unit: 'hPa' },    // Pressure
+            3: { value: currentData.windSpeed, unit: 'm/s' },   // Wind Speed
+            4: { value: currentData.visibility, unit: 'km' },   // Visibility
+            5: { value: currentData.cloudCover, unit: '%' },    // Cloud Cover
+            6: { value: currentData.dewPoint, unit: '°C' },     // Dew Point
+            7: { value: currentData.uvIndex, unit: '' },        // UV Index
+            8: { value: (currentData.rain1h || 0) + (currentData.snow1h || 0), unit: 'mm' }, // Rain/Snow
+            10: { value: currentData.moonPhase * 100, unit: '%' }, // Moon Phase
+            11: { value: currentData.solarElevation, unit: '°' },  // Solar Elevation
+            12: { value: currentData.solarWindSpeed, unit: 'km/s' }, // Solar Wind
+            13: { value: currentData.kpIndex, unit: '' }        // Kp Index
+        };
+        
+        const param = paramMap[paramId];
+        if (!param || param.value === undefined || param.value === '-') {
+            return '---';
+        }
+        
+        const val = typeof param.value === 'number' ? param.value.toFixed(1) : param.value;
+        return `${val}${param.unit}`;
+    }
+    
     // Update weather displays
     function updateWeatherDisplays() {
         const updates = {
