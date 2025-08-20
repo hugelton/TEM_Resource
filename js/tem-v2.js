@@ -106,11 +106,6 @@
         app.innerHTML = `
             <div class="header">
                 <h1>THE EARTH MODULE</h1>
-                <div class="device-info">
-                    <span>Device: tem-${config.deviceID || 'unknown'}</span>
-                    <span>Connection<span class="status-dot ${currentData.connectionStatus === 'connected' ? 'online' : 'offline'}" id="connection-status"></span></span>
-                    <span>API<span class="status-dot ${currentData.hasOpenWeatherKey ? 'online' : 'offline'}" id="api-status"></span></span>
-                </div>
             </div>
             
             <!-- 1. CV/GATE Outputs -->
@@ -297,14 +292,21 @@
         return `
             <div class="config-group">
                 <h3>API Keys</h3>
-                <input type="password" id="openweather-key" placeholder="OpenWeather API Key" 
-                       value="${currentData.hasOpenWeatherKey ? '••••••••••••' : ''}">
-                <input type="password" id="nasa-key" placeholder="NASA API Key (optional)"
-                       value="${currentData.hasNasaKey ? '••••••••••••' : ''}">
+                <div class="api-key-row">
+                    <input type="password" id="openweather-key" placeholder="OpenWeather API Key" 
+                           value="${currentData.hasOpenWeatherKey ? '••••••••••••' : ''}">
+                    ${currentData.hasOpenWeatherKey ? '<button class="btn-delete" onclick="deleteAPIKey(\'openweather\')" title="Delete API Key">🗑️</button>' : ''}
+                </div>
+                <div class="api-key-row">
+                    <input type="password" id="nasa-key" placeholder="NASA API Key (optional)"
+                           value="${currentData.hasNasaKey ? '••••••••••••' : ''}">
+                    ${currentData.hasNasaKey ? '<button class="btn-delete" onclick="deleteAPIKey(\'nasa\')" title="Delete NASA Key">🗑️</button>' : ''}
+                </div>
                 <button class="btn-primary" onclick="saveAPIKeys()">Save Keys</button>
             </div>
             <div class="config-group">
                 <h3>Network</h3>
+                <div class="info-text">Device: <strong>tem-${config.deviceID || 'unknown'}.local</strong></div>
                 <div class="info-text">SSID: <strong id="wifi-ssid">-</strong></div>
                 <div class="info-text">IP: <strong id="wifi-ip">-</strong></div>
                 <div class="info-text">Signal: <strong id="wifi-signal">-</strong></div>
@@ -503,6 +505,41 @@
     };
 
     // Save API keys
+    // Delete API key function
+    window.deleteAPIKey = function(keyType) {
+        if (!confirm(`Delete ${keyType === 'openweather' ? 'OpenWeather' : 'NASA'} API key?`)) {
+            return;
+        }
+        
+        const data = new URLSearchParams();
+        data.append(keyType, 'DELETE');
+        
+        fetch(`${config.apiEndpoint}/api/keys`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: data
+        }).then(response => {
+            if (response.ok) {
+                showNotification(`${keyType === 'openweather' ? 'OpenWeather' : 'NASA'} key deleted`, 'success');
+                if (keyType === 'openweather') {
+                    currentData.hasOpenWeatherKey = false;
+                    document.getElementById('openweather-key').value = '';
+                } else {
+                    currentData.hasNasaKey = false;
+                    document.getElementById('nasa-key').value = '';
+                }
+                // Refresh the config section to update buttons
+                document.querySelector('.section:nth-child(5) .section-content').innerHTML = buildConfigSection();
+                updateAPIStatus();
+            } else {
+                showNotification('Failed to delete API key', 'error');
+            }
+        }).catch(err => {
+            console.error('API key delete error:', err);
+            showNotification('Failed to delete API key', 'error');
+        });
+    };
+    
     window.saveAPIKeys = function() {
         const weatherKey = document.getElementById('openweather-key').value;
         const nasaKey = document.getElementById('nasa-key').value;
