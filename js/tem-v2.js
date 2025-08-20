@@ -356,10 +356,11 @@
             return;
         }
         
+        // Use saved location if available, otherwise use current data
+        const lat = currentData.latitude || 35.6762;
+        const lng = currentData.longitude || 139.6503;
+        
         try {
-            // Use saved location if available, otherwise use current data
-            const lat = currentData.latitude || 35.6762;
-            const lng = currentData.longitude || 139.6503;
             console.log('Initializing map at:', lat, lng);
             
             map = L.map('map', {
