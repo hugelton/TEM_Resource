@@ -352,29 +352,38 @@ body {
 }
 
 .btn-delete {
-    background: rgba(255,68,68,0.05);
+    background: rgba(255,68,68,0.08);
     color: #ff4444;
     border: 1px solid rgba(255,68,68,0.3);
-    padding: 5px 10px;
-    font-size: 14px;
+    padding: 4px 8px;
+    font-size: 16px;
     cursor: pointer;
     border-radius: 3px;
-    margin-left: 10px;
+    margin-left: 8px;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 .btn-delete:hover {
-    background: rgba(255,68,68,0.15);
+    background: rgba(255,68,68,0.2);
+    transform: scale(1.05);
 }
 
 .api-key-row {
     display: flex;
     align-items: center;
     margin-bottom: 10px;
+    gap: 8px;
 }
 
 .api-key-row input {
     flex: 1;
     margin-bottom: 0;
+    height: 32px;
 }
 
 .info-text {
