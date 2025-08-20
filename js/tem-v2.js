@@ -542,8 +542,18 @@
         
         if (type === 'cv') {
             currentData.cvParams[index] = paramId;
+            // Update the actual value display immediately
+            const actualEl = document.getElementById(`cv${index + 1}-actual`);
+            if (actualEl) {
+                actualEl.textContent = getActualParameterValue(paramId);
+            }
         } else if (type === 'gate') {
             currentData.gateParams[index] = paramId;
+            // Update the actual value display immediately
+            const actualEl = document.getElementById(`gate${index + 1}-actual`);
+            if (actualEl) {
+                actualEl.textContent = getActualParameterValue(paramId);
+            }
         }
         
         // Send to device
