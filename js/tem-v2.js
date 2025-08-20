@@ -105,7 +105,12 @@
         
         app.innerHTML = `
             <div class="header">
-                <h1>THE EARTH MODULE</h1>
+                <div>
+                    <h1>THE EARTH MODULE DASHBOARD</h1>
+                </div>
+                <div class="header-controls">
+                    <a href="https://documents.hugelton.com/tem/" target="_blank" class="btn-docs">📖 Documentation</a>
+                </div>
             </div>
             
             <!-- 1. CV/GATE Outputs -->
