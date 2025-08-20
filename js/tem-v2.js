@@ -781,8 +781,44 @@
 
     // Start periodic updates
     function startUpdates() {
+        // First fetch API key status
+        fetchAPIKeys();
+        // Then start regular data updates
         fetchData();
         updateInterval = setInterval(fetchData, 2000);
+    }
+    
+    // Fetch API key status
+    function fetchAPIKeys() {
+        fetch(`${config.apiEndpoint}/api/keys`)
+            .then(response => response.json())
+            .then(data => {
+                currentData.hasOpenWeatherKey = data.hasOpenWeather || false;
+                currentData.hasNasaKey = data.hasNasa || false;
+                
+                // Update form if keys exist
+                if (data.openWeatherKey && data.openWeatherKey.length > 0) {
+                    const owInput = document.getElementById('openweather-key');
+                    if (owInput && owInput.value === '') {
+                        owInput.value = '••••••••••••';
+                    }
+                }
+                if (data.nasaKey && data.nasaKey.length > 0) {
+                    const nasaInput = document.getElementById('nasa-key');
+                    if (nasaInput && nasaInput.value === '') {
+                        nasaInput.value = '••••••••••••';
+                    }
+                }
+                
+                // Refresh the config section to show delete buttons
+                const configSection = document.querySelector('.section:nth-child(4) .section-content');
+                if (configSection) {
+                    configSection.innerHTML = buildConfigSection();
+                }
+                
+                updateAPIStatus();
+            })
+            .catch(err => console.error('Failed to fetch API keys:', err));
     }
 
     // Cleanup
