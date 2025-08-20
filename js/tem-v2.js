@@ -306,7 +306,7 @@
             </div>
             <div class="config-group">
                 <h3>Network</h3>
-                <div class="info-text">Device: <strong>tem-${config.deviceID || 'unknown'}.local</strong></div>
+                <div class="info-text">Device: <strong class="device-name">tem-${config.deviceID || 'unknown'}.local</strong></div>
                 <div class="info-text">SSID: <strong id="wifi-ssid">-</strong></div>
                 <div class="info-text">IP: <strong id="wifi-ip">-</strong></div>
                 <div class="info-text">Signal: <strong id="wifi-signal">-</strong></div>
@@ -784,11 +784,32 @@
 
     // Start periodic updates
     function startUpdates() {
-        // First fetch API key status
+        // First fetch device status
+        fetchDeviceStatus();
+        // Then fetch API key status
         fetchAPIKeys();
         // Then start regular data updates
         fetchData();
         updateInterval = setInterval(fetchData, 2000);
+    }
+    
+    // Fetch device status including device ID
+    function fetchDeviceStatus() {
+        fetch(`${config.apiEndpoint}/api/status`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('Device status:', data);
+                if (data.deviceID) {
+                    config.deviceID = data.deviceID;
+                    // Update device display in Network section
+                    const deviceEls = document.querySelectorAll('.device-name');
+                    deviceEls.forEach(el => {
+                        el.textContent = `tem-${data.deviceID}.local`;
+                    });
+                }
+                updateDeviceInfo(data);
+            })
+            .catch(err => console.error('Failed to fetch device status:', err));
     }
     
     // Fetch API key status
