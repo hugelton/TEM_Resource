@@ -529,7 +529,10 @@
                     document.getElementById('nasa-key').value = '';
                 }
                 // Refresh the config section to update buttons
-                document.querySelector('.section:nth-child(5) .section-content').innerHTML = buildConfigSection();
+                const configGrid = document.querySelector('.config-grid');
+                if (configGrid) {
+                    configGrid.innerHTML = buildConfigSection();
+                }
                 updateAPIStatus();
             } else {
                 showNotification('Failed to delete API key', 'error');
@@ -793,6 +796,7 @@
         fetch(`${config.apiEndpoint}/api/keys`)
             .then(response => response.json())
             .then(data => {
+                console.log('API keys fetched:', data);
                 currentData.hasOpenWeatherKey = data.hasOpenWeather || false;
                 currentData.hasNasaKey = data.hasNasa || false;
                 
@@ -811,10 +815,14 @@
                 }
                 
                 // Refresh the config section to show delete buttons
-                const configSection = document.querySelector('.section:nth-child(4) .section-content');
-                if (configSection) {
-                    configSection.innerHTML = buildConfigSection();
-                }
+                // Use setTimeout to ensure DOM is ready
+                setTimeout(() => {
+                    const configGrid = document.querySelector('.config-grid');
+                    if (configGrid) {
+                        console.log('Rebuilding config section with delete buttons');
+                        configGrid.innerHTML = buildConfigSection();
+                    }
+                }, 100);
                 
                 updateAPIStatus();
             })
