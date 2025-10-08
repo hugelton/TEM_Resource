@@ -776,17 +776,23 @@
     // API key status management
     function updateApiKeyStatus() {
         const weatherSection = document.querySelector('.weather-grid')?.closest('.section');
+        const outputsSection = document.querySelector('.outputs-grid')?.closest('.section');
+        const locationSection = document.querySelector('#map')?.closest('.section');
         
         if (currentData.hasOpenWeatherKey) {
-            // API key exists - remove missing class
-            if (weatherSection) {
-                weatherSection.classList.remove('api-key-missing');
-            }
+            // API key exists - remove missing class from all sections
+            [weatherSection, outputsSection, locationSection].forEach(section => {
+                if (section) {
+                    section.classList.remove('api-key-missing');
+                }
+            });
         } else {
-            // API key missing - add missing class
-            if (weatherSection) {
-                weatherSection.classList.add('api-key-missing');
-            }
+            // API key missing - add missing class to all dependent sections
+            [weatherSection, outputsSection, locationSection].forEach(section => {
+                if (section) {
+                    section.classList.add('api-key-missing');
+                }
+            });
         }
     }
 
