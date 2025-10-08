@@ -323,7 +323,10 @@
                 <div class="info-text">Flash: <strong id="flash-usage">-</strong></div>
                 <div class="info-text">Uptime: <strong id="uptime">-</strong></div>
                 <div style="margin-top: 10px;">
-                    <button class="btn-primary" onclick="checkForUpdates()" style="width: 100%; margin-bottom: 8px;">Check for Updates</button>
+                    <button class="btn-primary" onclick="checkForUpdates()" style="width: 100%; margin-bottom: 8px; position: relative;" id="update-button">
+                        Check for Updates
+                        <span class="update-notification" id="update-dot" style="display: none;"></span>
+                    </button>
                     <button class="btn-danger" onclick="restartDevice()" style="width: 100%;">Restart</button>
                 </div>
             </div>
@@ -689,10 +692,13 @@
                 }
                 
                 if (data.updateAvailable) {
+                    // Hide notification dot when manually checking
+                    hideUpdateDot();
                     if (confirm(`New version ${data.latestVersion} available. Current: ${data.currentVersion}. Update now?`)) {
                         performUpdate();
                     }
                 } else {
+                    hideUpdateDot();
                     showNotification('No updates available', 'info');
                 }
             })
@@ -705,6 +711,32 @@
                 showNotification('Failed to check for updates', 'error');
             });
     };
+
+    // Silent update check (no UI feedback, only shows dot if update available)
+    function checkForUpdatesQuietly() {
+        fetch(`${config.apiEndpoint}/api/check-update`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.updateAvailable) {
+                    showUpdateDot();
+                    console.log(`Silent update check: ${data.currentVersion} → ${data.latestVersion} available`);
+                }
+            })
+            .catch(err => {
+                console.log('Silent update check failed:', err);
+            });
+    }
+
+    // Show/hide update notification dot
+    function showUpdateDot() {
+        const dot = document.getElementById('update-dot');
+        if (dot) dot.style.display = 'block';
+    }
+
+    function hideUpdateDot() {
+        const dot = document.getElementById('update-dot');
+        if (dot) dot.style.display = 'none';
+    }
 
     // Perform OTA update
     function performUpdate() {
@@ -944,6 +976,9 @@
         // Then start regular data updates
         fetchData();
         updateInterval = setInterval(fetchData, 2000);
+        
+        // Check for updates silently on startup
+        setTimeout(checkForUpdatesQuietly, 3000);
     }
     
     // Fetch device status including device ID and saved location
