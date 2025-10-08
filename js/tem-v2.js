@@ -109,7 +109,6 @@
                     <h1>THE EARTH MODULE DASHBOARD</h1>
                 </div>
                 <div class="header-controls">
-                    <span>Device: tem-${config.deviceID || 'unknown'}</span>
                     <span>Connection<span class="status-dot ${currentData.connectionStatus === 'connected' ? 'online' : 'offline'}" id="connection-status"></span></span>
                     <span>API<span class="status-dot ${currentData.hasOpenWeatherKey ? 'online' : 'offline'}" id="api-status"></span></span>
                     <a href="https://documents.hugelton.com/TEM/" target="_blank" class="btn-docs">📖 Documentation</a>
