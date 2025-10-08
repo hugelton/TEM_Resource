@@ -691,15 +691,34 @@
                     button.disabled = false;
                 }
                 
-                if (data.updateAvailable) {
-                    // Hide notification dot when manually checking
-                    hideUpdateDot();
-                    if (confirm(`New version ${data.latestVersion} available. Current: ${data.currentVersion}. Update now?`)) {
-                        performUpdate();
-                    }
+                // Check for updates via Update Wizard
+                if (data.checkUrl) {
+                    fetch(data.checkUrl)
+                        .then(response => response.json())
+                        .then(wizardData => {
+                            console.log('Wizard data:', wizardData);
+                            console.log('Device data:', data);
+                            
+                            if (wizardData.updateAvailable) {
+                                const latestVersion = wizardData.currentLatestVersion;
+                                showNotification(`New version ${latestVersion} available! Opening Update Wizard...`, 'success');
+                                
+                                // 直接Update Wizardを開く
+                                setTimeout(() => {
+                                    window.open(data.updateWizardUrl, '_blank');
+                                }, 1000);
+                            } else {
+                                showNotification('No updates available', 'info');
+                            }
+                        })
+                        .catch(() => {
+                            // Fallback: always open wizard
+                            if (confirm('Check for updates via Update Wizard?')) {
+                                window.open(data.updateWizardUrl, '_blank');
+                            }
+                        });
                 } else {
-                    hideUpdateDot();
-                    showNotification('No updates available', 'info');
+                    showNotification('Update wizard not available', 'error');
                 }
             })
             .catch(err => {
@@ -712,20 +731,7 @@
             });
     };
 
-    // Silent update check (no UI feedback, only shows dot if update available)
-    function checkForUpdatesQuietly() {
-        fetch(`${config.apiEndpoint}/api/check-update`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.updateAvailable) {
-                    showUpdateDot();
-                    console.log(`Silent update check: ${data.currentVersion} → ${data.latestVersion} available`);
-                }
-            })
-            .catch(err => {
-                console.log('Silent update check failed:', err);
-            });
-    }
+    // Silent update check disabled - removing auto notification
 
     // Show/hide update notification dot
     function showUpdateDot() {
@@ -738,23 +744,7 @@
         if (dot) dot.style.display = 'none';
     }
 
-    // Perform OTA update
-    function performUpdate() {
-        showNotification('Starting firmware update...', 'info');
-        
-        fetch(`${config.apiEndpoint}/api/update`, {
-            method: 'POST'
-        }).then(response => {
-            if (response.ok) {
-                showNotification('Update started. Device will restart when complete.', 'success');
-            } else {
-                showNotification('Update failed', 'error');
-            }
-        }).catch(err => {
-            console.error('Update error:', err);
-            showNotification('Update failed', 'error');
-        });
-    };
+    // OTA functionality removed - Update Wizard handles updates;
 
     // Fetch data from device
     function fetchData() {
@@ -978,7 +968,7 @@
         updateInterval = setInterval(fetchData, 2000);
         
         // Check for updates silently on startup
-        setTimeout(checkForUpdatesQuietly, 3000);
+        // Auto update check disabled
     }
     
     // Fetch device status including device ID and saved location
