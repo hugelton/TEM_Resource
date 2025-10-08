@@ -319,7 +319,7 @@
             </div>
             <div class="config-group">
                 <h3>System</h3>
-                <div class="info-text">Version: <strong>1.1.1</strong></div>
+                <div class="info-text">Version: <strong>1.1.2</strong></div>
                 <div class="info-text">Flash: <strong id="flash-usage">-</strong></div>
                 <div class="info-text">Uptime: <strong id="uptime">-</strong></div>
                 <div style="margin-top: 10px;">
