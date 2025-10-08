@@ -319,7 +319,7 @@
             </div>
             <div class="config-group">
                 <h3>System</h3>
-                <div class="info-text">Version: <strong>1.1.2</strong></div>
+                <div class="info-text">Version: <strong id="firmware-version">-</strong></div>
                 <div class="info-text">Flash: <strong id="flash-usage">-</strong></div>
                 <div class="info-text">Uptime: <strong id="uptime">-</strong></div>
                 <div style="margin-top: 10px;">
@@ -888,6 +888,10 @@
 
     // Update device info
     function updateDeviceInfo(status) {
+        if (status.version) {
+            const versionEl = document.getElementById('firmware-version');
+            if (versionEl) versionEl.textContent = status.version;
+        }
         if (status.ip) {
             const ipEl = document.getElementById('wifi-ip');
             if (ipEl) ipEl.textContent = status.ip;
