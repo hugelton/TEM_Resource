@@ -323,9 +323,9 @@
                 <div class="info-text">Version: <strong>1.1.0</strong></div>
                 <div class="info-text">Flash: <strong id="flash-usage">-</strong></div>
                 <div class="info-text">Uptime: <strong id="uptime">-</strong></div>
-                <div style="margin-top: 10px; display: flex; gap: 10px;">
-                    <button class="btn-primary" onclick="checkForUpdates()" style="flex: 1;">Check for Updates</button>
-                    <button class="btn-danger" onclick="restartDevice()">Restart</button>
+                <div style="margin-top: 10px;">
+                    <button class="btn-primary" onclick="checkForUpdates()" style="width: 100%; margin-bottom: 8px;">Check for Updates</button>
+                    <button class="btn-danger" onclick="restartDevice()" style="width: 100%;">Restart</button>
                 </div>
             </div>
         `;
