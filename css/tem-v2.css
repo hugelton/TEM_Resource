@@ -65,6 +65,15 @@ body {
 .header-controls {
     display: flex;
     gap: 10px;
+    align-items: center;
+}
+
+.header-controls span {
+    font-size: 12px;
+    color: #666;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
 .btn-docs {
@@ -266,6 +275,7 @@ body {
 .param-select option {
     background: #0a0a0f;
     padding: 2px;
+    color: #fff;
 }
 
 .param-select optgroup {
@@ -508,6 +518,24 @@ body {
 
 .leaflet-control-zoom a:hover {
     background: rgba(0,255,136,0.1) !important;
+}
+
+/* NEW Badge */
+.new-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #00ff88;
+    color: #000;
+    font-size: 9px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 8px;
+    margin-left: 6px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1;
 }
 
 /* Responsive adjustments */

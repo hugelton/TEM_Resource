@@ -55,19 +55,19 @@
             { id: 3, name: 'Wind Speed', unit: 'm/s', range: [0, 20], category: 'weather' },
             { id: 4, name: 'Visibility', unit: 'km', range: [0, 10], category: 'weather' },
             { id: 5, name: 'Cloud Cover', unit: '%', range: [0, 100], category: 'weather' },
-            { id: 6, name: 'Dew Point', unit: '°C', range: [-20, 30], category: 'weather' },
-            { id: 7, name: 'UV Index', unit: '', range: [0, 11], category: 'weather' },
+            { id: 6, name: 'Dew Point', unit: '°C', range: [-20, 30], category: 'weather', isNew: true },
+            { id: 7, name: 'UV Index', unit: '', range: [0, 11], category: 'weather', isNew: true },
             { id: 10, name: 'Moon Phase', unit: '', range: [0, 1], category: 'celestial' },
             { id: 11, name: 'Solar Elevation', unit: '°', range: [-90, 90], category: 'celestial' },
-            { id: 12, name: 'Solar Wind', unit: 'km/s', range: [250, 800], category: 'space' },
-            { id: 13, name: 'Kp Index', unit: '', range: [0, 9], category: 'space' }
+            { id: 12, name: 'Solar Wind', unit: 'km/s', range: [250, 800], category: 'space', isNew: true },
+            { id: 13, name: 'Kp Index', unit: '', range: [0, 9], category: 'space', isNew: true }
         ],
         gate: [
             { id: 8, name: 'Rain/Snow', logic: '>1mm ON, <0.2mm OFF', category: 'weather' },
             { id: 3, name: 'Wind', logic: '>10m/s ON, <7m/s OFF', category: 'weather' },
             { id: 11, name: 'Day/Night', logic: '>0° ON, <-5° OFF', category: 'celestial' },
-            { id: 13, name: 'Storm', logic: 'Kp>5 ON, Kp<4 OFF', category: 'space' },
-            { id: 14, name: 'Flare', logic: 'M+ ON, C- OFF', category: 'space' }
+            { id: 13, name: 'Storm', logic: 'Kp>5 ON, Kp<4 OFF', category: 'space', isNew: true },
+            { id: 14, name: 'Flare', logic: 'M+ ON, C- OFF', category: 'space', isNew: true }
         ]
     };
 
@@ -109,14 +109,16 @@
                     <h1>THE EARTH MODULE DASHBOARD</h1>
                 </div>
                 <div class="header-controls">
-                    <a href="https://documents.hugelton.com/tem/" target="_blank" class="btn-docs">📖 Documentation</a>
+                    <span>Device: tem-${config.deviceID || 'unknown'}</span>
+                    <span>Connection<span class="status-dot ${currentData.connectionStatus === 'connected' ? 'online' : 'offline'}" id="connection-status"></span></span>
+                    <span>API<span class="status-dot ${currentData.hasOpenWeatherKey ? 'online' : 'offline'}" id="api-status"></span></span>
+                    <a href="https://documents.hugelton.com/TEM/" target="_blank" class="btn-docs">📖 Documentation</a>
                 </div>
             </div>
             
             <!-- 1. CV/GATE Outputs -->
             <div class="section">
                 <div class="section-header">
-                    <span class="section-number">1</span>
                     <span class="section-title">CV / GATE Outputs</span>
                 </div>
                 <div class="outputs-grid">
@@ -128,7 +130,6 @@
             <!-- 2. Location Map -->
             <div class="section">
                 <div class="section-header">
-                    <span class="section-number">2</span>
                     <span class="section-title">Location</span>
                 </div>
                 <div class="map-controls">
@@ -148,7 +149,6 @@
             <!-- 3. Environmental Data -->
             <div class="section">
                 <div class="section-header">
-                    <span class="section-number">3</span>
                     <span class="section-title">Environmental Data</span>
                 </div>
                 <div class="weather-grid">
@@ -159,7 +159,6 @@
             <!-- 4. Configuration -->
             <div class="section">
                 <div class="section-header">
-                    <span class="section-number">4</span>
                     <span class="section-title">Configuration</span>
                 </div>
                 <div class="config-grid">
@@ -230,8 +229,9 @@
             if (params.length > 0) {
                 html += `<optgroup label="${label}">`;
                 params.forEach(p => {
-                    html += `<option value="${p.id}" ${p.id === selected ? 'selected' : ''}>
-                        ${p.name} [${p.range[0]},${p.range[1]}${p.unit}]
+                    const badge = p.isNew ? ' ●NEW' : '';
+                    html += `<option value="${p.id}" ${p.id === selected ? 'selected' : ''} style="${p.isNew ? 'color: #000 !important; background: #00ff88 !important; font-weight: bold !important;' : ''}">
+                        ${p.name} [${p.range[0]},${p.range[1]}${p.unit}]${badge}
                     </option>`;
                 });
                 html += '</optgroup>';
@@ -244,8 +244,9 @@
     function buildGateOptions(selected) {
         let html = '<optgroup label="── Gate Logic ──">';
         parameters.gate.forEach(p => {
-            html += `<option value="${p.id}" ${p.id === selected ? 'selected' : ''}>
-                ${p.name} [${p.logic}]
+            const badge = p.isNew ? ' ●NEW' : '';
+            html += `<option value="${p.id}" ${p.id === selected ? 'selected' : ''} style="${p.isNew ? 'color: #000 !important; background: #00ff88 !important; font-weight: bold !important;' : ''}">
+                ${p.name} [${p.logic}]${badge}
             </option>`;
         });
         html += '</optgroup>';
@@ -306,11 +307,6 @@
                     <input type="password" id="openweather-key" placeholder="OpenWeather API Key" 
                            value="${currentData.hasOpenWeatherKey ? '••••••••••••' : ''}">
                     ${currentData.hasOpenWeatherKey ? '<button class="btn-delete" onclick="deleteAPIKey(\'openweather\')" title="Delete API Key">🗑️</button>' : ''}
-                </div>
-                <div class="api-key-row">
-                    <input type="password" id="nasa-key" placeholder="NASA API Key (optional)"
-                           value="${currentData.hasNasaKey ? '••••••••••••' : ''}">
-                    ${currentData.hasNasaKey ? '<button class="btn-delete" onclick="deleteAPIKey(\'nasa\')" title="Delete NASA Key">🗑️</button>' : ''}
                 </div>
                 <button class="btn-primary" onclick="saveAPIKeys()">Save Keys</button>
             </div>
@@ -612,7 +608,6 @@
     
     window.saveAPIKeys = function() {
         const weatherKey = document.getElementById('openweather-key').value;
-        const nasaKey = document.getElementById('nasa-key').value;
         
         if (!weatherKey || weatherKey === '••••••••••••') {
             showNotification('Please enter OpenWeather API key', 'error');
@@ -621,9 +616,6 @@
         
         const data = new URLSearchParams();
         data.append('openweather', weatherKey);
-        if (nasaKey && nasaKey !== '••••••••••••') {
-            data.append('nasa', nasaKey);
-        }
         
         fetch(`${config.apiEndpoint}/api/keys`, {
             method: 'POST',
@@ -633,7 +625,6 @@
             if (response.ok) {
                 showNotification('API keys saved', 'success');
                 currentData.hasOpenWeatherKey = true;
-                if (nasaKey) currentData.hasNasaKey = true;
                 updateAPIStatus();
             } else {
                 showNotification('Failed to save API keys', 'error');
