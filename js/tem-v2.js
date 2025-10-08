@@ -46,6 +46,12 @@
         connectionStatus: 'offline'
     };
 
+    // API connection state
+    let apiConnected = true;
+    let apiFailureCount = 0;
+    let updateInterval;
+    let mapInitialized = false;
+
     // Parameter definitions
     const parameters = {
         cv: [
@@ -766,7 +772,52 @@
         if (dot) dot.style.display = 'none';
     }
 
-    // OTA functionality removed - Update Wizard handles updates;
+    // OTA functionality removed - Update Wizard handles updates
+
+    // API connection management
+    function updateApiConnectionStatus(connected) {
+        if (connected) {
+            apiFailureCount = 0;
+            apiConnected = true;
+            
+            // Remove disconnected class from all controllable sections
+            document.querySelectorAll('.api-disconnected').forEach(element => {
+                element.classList.remove('api-disconnected');
+            });
+            
+            // Update status indicator
+            const statusDot = document.querySelector('.status-dot');
+            if (statusDot) {
+                statusDot.classList.add('online');
+                statusDot.classList.remove('offline');
+            }
+        } else {
+            apiFailureCount++;
+            
+            // After 3 consecutive failures, mark as disconnected
+            if (apiFailureCount >= 3) {
+                apiConnected = false;
+                
+                // Add disconnected class to controllable sections
+                const outputsSection = document.querySelector('.outputs-grid')?.closest('.section');
+                const mapSection = document.querySelector('.map-controls')?.closest('.section');
+                const configSection = document.querySelector('.config-grid')?.closest('.section');
+                
+                [outputsSection, mapSection, configSection].forEach(section => {
+                    if (section) {
+                        section.classList.add('api-disconnected');
+                    }
+                });
+                
+                // Update status indicator
+                const statusDot = document.querySelector('.status-dot');
+                if (statusDot) {
+                    statusDot.classList.add('offline');
+                    statusDot.classList.remove('online');
+                }
+            }
+        }
+    };
 
     // Fetch data from device
     function fetchData() {
@@ -775,6 +826,9 @@
             fetch(`${config.apiEndpoint}/api/weather`).then(r => r.json()).catch(() => null),
             fetch(`${config.apiEndpoint}/api/status`).then(r => r.json()).catch(() => null)
         ]).then(([cvData, weatherData, statusData]) => {
+            // Update API connection status
+            updateApiConnectionStatus(true);
+            
             // Update connection status
             currentData.connectionStatus = 'connected';
             updateConnectionStatus();
@@ -812,6 +866,10 @@
             // API key status is now only fetched once at startup
         }).catch(error => {
             console.error('Fetch error:', error);
+            
+            // Update API connection status
+            updateApiConnectionStatus(false);
+            
             currentData.connectionStatus = 'offline';
             updateConnectionStatus();
         });
