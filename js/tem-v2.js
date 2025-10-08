@@ -134,7 +134,7 @@
                 <div class="map-controls">
                     <input type="text" placeholder="Search city..." id="city-search">
                     <button onclick="searchCity()">Search</button>
-                    <button onclick="getCurrentLocation()">📍 GPS</button>
+                    <button onclick="getCurrentLocation()" ${window.location.protocol !== 'https:' ? 'disabled title="GPS requires HTTPS connection"' : ''}>📍 GPS</button>
                     <button onclick="setAsDefault()" class="btn-default">⭐ Set as Default</button>
                 </div>
                 <div id="map"></div>
@@ -521,6 +521,12 @@
 
     // Get current location
     window.getCurrentLocation = function() {
+        // Check if HTTPS connection is required
+        if (window.location.protocol !== 'https:') {
+            showNotification('GPS requires HTTPS connection', 'error');
+            return;
+        }
+        
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(function(position) {
                 const lat = position.coords.latitude;
@@ -531,6 +537,8 @@
             }, function(error) {
                 showNotification('Location access denied', 'error');
             });
+        } else {
+            showNotification('Geolocation not supported', 'error');
         }
     };
 
