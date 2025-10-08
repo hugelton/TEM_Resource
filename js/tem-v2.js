@@ -701,13 +701,13 @@
                             
                             if (wizardData.updateAvailable) {
                                 const latestVersion = wizardData.currentLatestVersion;
-                                showNotification(`New version ${latestVersion} available! Opening Update Wizard...`, 'success');
+                                hideUpdateDot(); // Hide dot when manually checking
                                 
-                                // 直接Update Wizardを開く
-                                setTimeout(() => {
+                                if (confirm(`New version ${latestVersion} available. Current: ${data.currentVersion}. Open Update Wizard?`)) {
                                     window.open(data.updateWizardUrl, '_blank');
-                                }, 1000);
+                                }
                             } else {
+                                hideUpdateDot();
                                 showNotification('No updates available', 'info');
                             }
                         })
@@ -731,7 +731,29 @@
             });
     };
 
-    // Silent update check disabled - removing auto notification
+    // Silent update check for red dot notification
+    function checkForUpdatesQuietly() {
+        fetch(`${config.apiEndpoint}/api/check-update`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.checkUrl) {
+                    fetch(data.checkUrl)
+                        .then(response => response.json())
+                        .then(wizardData => {
+                            if (wizardData.updateAvailable) {
+                                showUpdateDot();
+                                console.log(`Silent update check: ${data.currentVersion} → ${wizardData.currentLatestVersion} available`);
+                            }
+                        })
+                        .catch(err => {
+                            console.log('Silent update check failed:', err);
+                        });
+                }
+            })
+            .catch(err => {
+                console.log('Silent update check failed:', err);
+            });
+    }
 
     // Show/hide update notification dot
     function showUpdateDot() {
@@ -968,7 +990,7 @@
         updateInterval = setInterval(fetchData, 2000);
         
         // Check for updates silently on startup
-        // Auto update check disabled
+        setTimeout(checkForUpdatesQuietly, 3000);
     }
     
     // Fetch device status including device ID and saved location
