@@ -49,7 +49,6 @@
     // API connection state
     let apiConnected = true;
     let apiFailureCount = 0;
-    let updateInterval;
     let mapInitialized = false;
 
     // Parameter definitions
@@ -774,6 +773,23 @@
 
     // OTA functionality removed - Update Wizard handles updates
 
+    // API key status management
+    function updateApiKeyStatus() {
+        const weatherSection = document.querySelector('.weather-grid')?.closest('.section');
+        
+        if (currentData.hasOpenWeatherKey) {
+            // API key exists - remove missing class
+            if (weatherSection) {
+                weatherSection.classList.remove('api-key-missing');
+            }
+        } else {
+            // API key missing - add missing class
+            if (weatherSection) {
+                weatherSection.classList.add('api-key-missing');
+            }
+        }
+    }
+
     // API connection management
     function updateApiConnectionStatus(connected) {
         if (connected) {
@@ -846,6 +862,7 @@
             if (weatherData) {
                 Object.assign(currentData, weatherData);
                 updateWeatherDisplays();
+                updateApiKeyStatus(); // Check API key status
             }
             
             // Update device info
@@ -1042,7 +1059,10 @@
         // First fetch device status
         fetchDeviceStatus();
         // Then fetch API key status
-        fetchAPIKeys();
+        fetchAPIKeys().then(() => {
+            // Check API key status after fetching
+            updateApiKeyStatus();
+        });
         // Then start regular data updates
         fetchData();
         updateInterval = setInterval(fetchData, 2000);
@@ -1100,7 +1120,7 @@
     
     // Fetch API key status
     function fetchAPIKeys() {
-        fetch(`${config.apiEndpoint}/api/keys`)
+        return fetch(`${config.apiEndpoint}/api/keys`)
             .then(response => response.json())
             .then(data => {
                 console.log('API keys fetched:', data);
