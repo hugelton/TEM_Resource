@@ -320,10 +320,13 @@
             </div>
             <div class="config-group">
                 <h3>System</h3>
-                <div class="info-text">Version: <strong>1.0.0</strong></div>
+                <div class="info-text">Version: <strong>1.1.0</strong></div>
                 <div class="info-text">Flash: <strong id="flash-usage">-</strong></div>
                 <div class="info-text">Uptime: <strong id="uptime">-</strong></div>
-                <button class="btn-danger" onclick="restartDevice()" style="margin-top: 10px;">Restart</button>
+                <div style="margin-top: 10px; display: flex; gap: 10px;">
+                    <button class="btn-primary" onclick="checkForUpdates()" style="flex: 1;">Check for Updates</button>
+                    <button class="btn-danger" onclick="restartDevice()">Restart</button>
+                </div>
             </div>
         `;
     }
@@ -659,6 +662,58 @@
             showNotification('Device restarting...', 'success');
         }).catch(err => {
             console.error('Restart error:', err);
+        });
+    };
+
+    // Check for OTA updates
+    window.checkForUpdates = function() {
+        const button = document.querySelector('button[onclick="checkForUpdates()"]');
+        if (button) {
+            button.textContent = 'Checking...';
+            button.disabled = true;
+        }
+        
+        fetch(`${config.apiEndpoint}/api/check-update`)
+            .then(response => response.json())
+            .then(data => {
+                if (button) {
+                    button.textContent = 'Check for Updates';
+                    button.disabled = false;
+                }
+                
+                if (data.hasUpdate) {
+                    if (confirm(`New version ${data.latestVersion} available. Current: ${data.currentVersion}. Update now?`)) {
+                        performUpdate();
+                    }
+                } else {
+                    showNotification('No updates available', 'info');
+                }
+            })
+            .catch(err => {
+                console.error('Update check error:', err);
+                if (button) {
+                    button.textContent = 'Check for Updates';
+                    button.disabled = false;
+                }
+                showNotification('Failed to check for updates', 'error');
+            });
+    };
+
+    // Perform OTA update
+    function performUpdate() {
+        showNotification('Starting firmware update...', 'info');
+        
+        fetch(`${config.apiEndpoint}/api/update`, {
+            method: 'POST'
+        }).then(response => {
+            if (response.ok) {
+                showNotification('Update started. Device will restart when complete.', 'success');
+            } else {
+                showNotification('Update failed', 'error');
+            }
+        }).catch(err => {
+            console.error('Update error:', err);
+            showNotification('Update failed', 'error');
         });
     };
 
