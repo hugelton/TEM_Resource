@@ -688,7 +688,7 @@
                     button.disabled = false;
                 }
                 
-                if (data.hasUpdate) {
+                if (data.updateAvailable) {
                     if (confirm(`New version ${data.latestVersion} available. Current: ${data.currentVersion}. Update now?`)) {
                         performUpdate();
                     }
