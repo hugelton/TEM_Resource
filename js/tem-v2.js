@@ -553,20 +553,33 @@
     // Update parameter assignment
     window.updateParam = function(type, index, value) {
         const paramId = parseInt(value);
+        console.log(`🔧 updateParam() called: ${type.toUpperCase()}${index + 1} → param ${paramId}`);
         
         if (type === 'cv') {
+            const oldParam = currentData.cvParams[index];
             currentData.cvParams[index] = paramId;
+            console.log(`📝 CV${index + 1} param changed: ${oldParam} → ${paramId}`);
+            
             // Update the actual value display immediately
             const actualEl = document.getElementById(`cv${index + 1}-actual`);
             if (actualEl) {
-                actualEl.textContent = getActualParameterValue(paramId);
+                const oldActual = actualEl.textContent;
+                const newActual = getActualParameterValue(paramId);
+                actualEl.textContent = newActual;
+                console.log(`🏷️ CV${index + 1} actual immediately updated: "${oldActual}" → "${newActual}"`);
             }
         } else if (type === 'gate') {
+            const oldParam = currentData.gateParams[index];
             currentData.gateParams[index] = paramId;
+            console.log(`📝 GATE${index + 1} param changed: ${oldParam} → ${paramId}`);
+            
             // Update the actual value display immediately
             const actualEl = document.getElementById(`gate${index + 1}-actual`);
             if (actualEl) {
-                actualEl.textContent = getActualParameterValue(paramId);
+                const oldActual = actualEl.textContent;
+                const newActual = getActualParameterValue(paramId);
+                actualEl.textContent = newActual;
+                console.log(`🏷️ GATE${index + 1} actual immediately updated: "${oldActual}" → "${newActual}"`);
             }
         }
         
@@ -855,20 +868,19 @@
             currentData.connectionStatus = 'connected';
             updateConnectionStatus();
             
-            // Update CV/GATE values
-            if (cvData) {
-                currentData.cvValues = [cvData.cv1 || 0, cvData.cv2 || 0];
-                currentData.gateValues = [cvData.gate1 || 0, cvData.gate2 || 0];
-                currentData.cvParams = [cvData.cv1param || 0, cvData.cv2param || 1];
-                currentData.gateParams = [cvData.gate1param || 8, cvData.gate2param || 3];
-                updateOutputDisplays();
-            }
-            
-            // Update weather data
+            // Update weather data first to get parameters
             if (weatherData) {
                 Object.assign(currentData, weatherData);
                 updateWeatherDisplays();
                 updateApiKeyStatus(); // Check API key status
+            }
+            
+            // Update CV/GATE values after weather data
+            if (cvData) {
+                currentData.cvValues = [cvData.cv1 || 0, cvData.cv2 || 0];
+                currentData.gateValues = [cvData.gate1 || 0, cvData.gate2 || 0];
+                // Parameters already set from weatherData above
+                updateOutputDisplays();
             }
             
             // Update device info
@@ -900,18 +912,37 @@
 
     // Update output displays
     function updateOutputDisplays() {
+        console.log('🔄 updateOutputDisplays() called');
+        console.log('Current data:', {
+            cvValues: currentData.cvValues,
+            cvParams: currentData.cvParams,
+            gateValues: currentData.gateValues,
+            gateParams: currentData.gateParams
+        });
+        
         // Update CV displays
         for (let i = 0; i < 2; i++) {
             const valueEl = document.getElementById(`cv${i + 1}-value`);
             const actualEl = document.getElementById(`cv${i + 1}-actual`);
             const barEl = document.getElementById(`cv${i + 1}-bar`);
             
+            const voltage = (currentData.cvValues[i] * 5).toFixed(2);
+            const actualValue = getActualParameterValue(currentData.cvParams[i]);
+            
             if (valueEl) {
-                const voltage = (currentData.cvValues[i] * 5).toFixed(2);
-                valueEl.textContent = `${voltage}V`;
+                const oldValue = valueEl.textContent;
+                const newValue = `${voltage}V`;
+                if (oldValue !== newValue) {
+                    console.log(`📊 CV${i + 1} output-value changed: "${oldValue}" → "${newValue}"`);
+                }
+                valueEl.textContent = newValue;
             }
             if (actualEl) {
-                actualEl.textContent = getActualParameterValue(currentData.cvParams[i]);
+                const oldActual = actualEl.textContent;
+                if (oldActual !== actualValue) {
+                    console.log(`🏷️ CV${i + 1} output-actual changed: "${oldActual}" → "${actualValue}" (param: ${currentData.cvParams[i]})`);
+                }
+                actualEl.textContent = actualValue;
             }
             if (barEl) {
                 barEl.style.width = `${currentData.cvValues[i] * 100}%`;
@@ -925,17 +956,30 @@
             const barEl = document.getElementById(`gate${i + 1}-bar`);
             const state = currentData.gateValues[i] > 0.5;
             
+            const actualValue = getActualParameterValue(currentData.gateParams[i]);
+            
             if (valueEl) {
-                valueEl.textContent = state ? 'HIGH' : 'LOW';
+                const oldValue = valueEl.textContent;
+                const newValue = state ? 'HIGH' : 'LOW';
+                if (oldValue !== newValue) {
+                    console.log(`⚡ GATE${i + 1} output-value changed: "${oldValue}" → "${newValue}"`);
+                }
+                valueEl.textContent = newValue;
                 valueEl.className = `output-value ${state ? 'gate-high' : 'gate-low'}`;
             }
             if (actualEl) {
-                actualEl.textContent = getActualParameterValue(currentData.gateParams[i]);
+                const oldActual = actualEl.textContent;
+                if (oldActual !== actualValue) {
+                    console.log(`🏷️ GATE${i + 1} output-actual changed: "${oldActual}" → "${actualValue}" (param: ${currentData.gateParams[i]})`);
+                }
+                actualEl.textContent = actualValue;
             }
             if (barEl) {
                 barEl.style.width = state ? '100%' : '0%';
             }
         }
+        
+        console.log('✅ updateOutputDisplays() completed');
     }
 
     // Get actual parameter value
