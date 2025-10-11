@@ -721,16 +721,21 @@
                             const currentVersion = data.currentVersion;
                             const latestVersion = remoteData.version;
                             
+                            console.log(`🔍 Manual check: Current=${currentVersion}, Latest=${latestVersion}`);
                             const comparison = compareVersions(currentVersion, latestVersion);
+                            console.log(`📊 Manual check comparison result: ${comparison}`);
                             hideUpdateDot(); // Hide dot when manually checking
                             
                             if (comparison === 1) {
+                                console.log(`✅ Manual check: Update available`);
                                 if (confirm(`New version ${latestVersion} available. Current: ${currentVersion}. Open Update Wizard?`)) {
                                     window.open(data.updateWizardUrl, '_blank');
                                 }
                             } else if (comparison === -1) {
+                                console.log(`❌ Manual check: Current is newer`);
                                 showNotification(`Current version ${currentVersion} is newer than remote ${latestVersion}`, 'info');
                             } else {
+                                console.log(`🟰 Manual check: Same version`);
                                 showNotification('No updates available', 'info');
                             }
                         })
