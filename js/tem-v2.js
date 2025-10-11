@@ -979,7 +979,35 @@
             }
         }
         
+        // Update parameter select values to match server data
+        updateParameterSelects();
+        
         console.log('✅ updateOutputDisplays() completed');
+    }
+    
+    // Update parameter select boxes to match current data
+    function updateParameterSelects() {
+        console.log('🔄 updateParameterSelects() called');
+        
+        // Update CV parameter selects
+        for (let i = 0; i < 2; i++) {
+            const selectEl = document.querySelector(`select[data-output="cv${i}"]`);
+            if (selectEl && selectEl.value != currentData.cvParams[i]) {
+                const oldValue = selectEl.value;
+                selectEl.value = currentData.cvParams[i];
+                console.log(`📋 CV${i + 1} select updated: ${oldValue} → ${currentData.cvParams[i]}`);
+            }
+        }
+        
+        // Update Gate parameter selects  
+        for (let i = 0; i < 2; i++) {
+            const selectEl = document.querySelector(`select[data-output="gate${i}"]`);
+            if (selectEl && selectEl.value != currentData.gateParams[i]) {
+                const oldValue = selectEl.value;
+                selectEl.value = currentData.gateParams[i];
+                console.log(`📋 GATE${i + 1} select updated: ${oldValue} → ${currentData.gateParams[i]}`);
+            }
+        }
     }
 
     // Get actual parameter value
