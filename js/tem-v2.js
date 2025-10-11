@@ -713,19 +713,24 @@
                 if (data.checkUrl) {
                     fetch(data.checkUrl)
                         .then(response => response.json())
-                        .then(wizardData => {
-                            console.log('Wizard data:', wizardData);
+                        .then(remoteData => {
+                            console.log('Remote data:', remoteData);
                             console.log('Device data:', data);
                             
-                            if (wizardData.updateAvailable) {
-                                const latestVersion = wizardData.currentLatestVersion;
-                                hideUpdateDot(); // Hide dot when manually checking
-                                
-                                if (confirm(`New version ${latestVersion} available. Current: ${data.currentVersion}. Open Update Wizard?`)) {
+                            // Client-side version comparison
+                            const currentVersion = data.currentVersion;
+                            const latestVersion = remoteData.version;
+                            
+                            const comparison = compareVersions(currentVersion, latestVersion);
+                            hideUpdateDot(); // Hide dot when manually checking
+                            
+                            if (comparison === 1) {
+                                if (confirm(`New version ${latestVersion} available. Current: ${currentVersion}. Open Update Wizard?`)) {
                                     window.open(data.updateWizardUrl, '_blank');
                                 }
+                            } else if (comparison === -1) {
+                                showNotification(`Current version ${currentVersion} is newer than remote ${latestVersion}`, 'info');
                             } else {
-                                hideUpdateDot();
                                 showNotification('No updates available', 'info');
                             }
                         })
@@ -749,6 +754,34 @@
             });
     };
 
+    // Compare semantic versions (e.g., "1.2.1" vs "1.2.0")
+    function compareVersions(current, latest) {
+        console.log(`🔍 compareVersions: "${current}" vs "${latest}"`);
+        
+        const currentParts = current.split('.').map(Number);
+        const latestParts = latest.split('.').map(Number);
+        
+        console.log(`📊 Parsed: current=[${currentParts.join(',')}] latest=[${latestParts.join(',')}]`);
+        
+        for (let i = 0; i < Math.max(currentParts.length, latestParts.length); i++) {
+            const currentPart = currentParts[i] || 0;
+            const latestPart = latestParts[i] || 0;
+            
+            console.log(`🔢 Part ${i}: current=${currentPart} latest=${latestPart}`);
+            
+            if (latestPart > currentPart) {
+                console.log(`✅ Update available: ${latestPart} > ${currentPart}`);
+                return 1;  // Update available
+            }
+            if (latestPart < currentPart) {
+                console.log(`❌ Current newer: ${currentPart} > ${latestPart}`);
+                return -1; // Current is newer
+            }
+        }
+        console.log(`🟰 Same version`);
+        return 0; // Same version
+    }
+
     // Silent update check for red dot notification
     function checkForUpdatesQuietly() {
         fetch(`${config.apiEndpoint}/api/check-update`)
@@ -757,10 +790,21 @@
                 if (data.checkUrl) {
                     fetch(data.checkUrl)
                         .then(response => response.json())
-                        .then(wizardData => {
-                            if (wizardData.updateAvailable) {
+                        .then(remoteData => {
+                            // Client-side version comparison
+                            const currentVersion = data.currentVersion;
+                            const latestVersion = remoteData.version;
+                            
+                            console.log(`Version check: Current=${currentVersion}, Latest=${latestVersion}`);
+                            
+                            const comparison = compareVersions(currentVersion, latestVersion);
+                            if (comparison === 1) {
                                 showUpdateDot();
-                                console.log(`Silent update check: ${data.currentVersion} → ${wizardData.currentLatestVersion} available`);
+                                console.log(`Update available: ${currentVersion} → ${latestVersion}`);
+                            } else if (comparison === -1) {
+                                console.log(`Current version ${currentVersion} is newer than remote ${latestVersion}`);
+                            } else {
+                                console.log(`Version ${currentVersion} is up to date`);
                             }
                         })
                         .catch(err => {
