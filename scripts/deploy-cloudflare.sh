@@ -10,5 +10,7 @@ cp "$ROOT"/index.html "$ROOT"/tem-full.html "$ROOT"/demo.html "$ROOT"/test.html 
 cp "$ROOT"/css/*.css "$PUBLIC_DIR/css"/
 cp "$ROOT"/js/*.js "$PUBLIC_DIR/js"/
 
+printf '.DS_Store\n' > "$PUBLIC_DIR/.assetsignore"
+
 cd "$ROOT"
 wrangler deploy
