@@ -23,6 +23,7 @@
         cvValues: [0, 0],
         gateValues: [0, 0],
         cvParams: [0, 1],  // Temperature, Humidity
+        cvSlew: [0, 0],    // Seconds for a full 0-5V sweep
         gateParams: [8, 3], // Rain/Snow, Wind
         temperature: '-',
         humidity: '-',
@@ -43,6 +44,9 @@
         cityName: 'Tokyo',
         hasOpenWeatherKey: false,
         hasNasaKey: false,
+        bridgeEnabled: false,
+        requiresUserApiKey: true,
+        weatherMode: 'openweather',
         connectionStatus: 'offline'
     };
 
@@ -65,14 +69,23 @@
             { id: 10, name: 'Moon Phase', unit: '', range: [0, 1], category: 'celestial' },
             { id: 11, name: 'Solar Elevation', unit: '°', range: [-90, 90], category: 'celestial' },
             { id: 12, name: 'Solar Wind', unit: 'km/s', range: [250, 800], category: 'space', isNew: true },
-            { id: 13, name: 'Kp Index', unit: '', range: [0, 9], category: 'space', isNew: true }
+            { id: 13, name: 'Kp Index', unit: '', range: [0, 9], category: 'space', isNew: true },
+            { id: 15, name: 'Wind LFO', unit: '', range: [0, 1], category: 'motion', isNew: true },
+            { id: 16, name: 'Sky Drift', unit: '', range: [0, 1], category: 'motion', isNew: true },
+            { id: 17, name: 'Pressure Trend', unit: 'hPa', range: [-3, 3], category: 'motion', isNew: true },
+            { id: 18, name: 'Temp Trend', unit: '°C', range: [-2, 2], category: 'motion', isNew: true },
+            { id: 19, name: 'Day Cycle', unit: '', range: [0, 1], category: 'motion', isNew: true }
         ],
         gate: [
             { id: 8, name: 'Rain/Snow', logic: '>1mm ON, <0.2mm OFF', category: 'weather' },
             { id: 3, name: 'Wind', logic: '>10m/s ON, <7m/s OFF', category: 'weather' },
             { id: 11, name: 'Day/Night', logic: '>0° ON, <-5° OFF', category: 'celestial' },
             { id: 13, name: 'Storm', logic: 'Kp>5 ON, Kp<4 OFF', category: 'space', isNew: true },
-            { id: 14, name: 'Flare', logic: 'M+ ON, C- OFF', category: 'space', isNew: true }
+            { id: 14, name: 'Flare', logic: 'M+ ON, C- OFF', category: 'space', isNew: true },
+            { id: 20, name: 'Wind Gusts', logic: 'random triggers, more with wind', category: 'motion', isNew: true },
+            { id: 21, name: 'Rain Drops', logic: 'random triggers, more with rain/humidity', category: 'motion', isNew: true },
+            { id: 17, name: 'Pressure Falling', logic: '<-1hPa/30min ON, >-0.5 OFF', category: 'motion', isNew: true },
+            { id: 15, name: 'Wind Clock', logic: 'square wave, rate follows wind', category: 'motion', isNew: true }
         ]
     };
 
@@ -188,9 +201,16 @@
                     <div class="output-bar">
                         <div class="output-fill" id="cv${i + 1}-bar" style="width: ${currentData.cvValues[i] * 100}%"></div>
                     </div>
+                    <canvas class="output-scope" id="cv${i + 1}-scope" aria-label="CV ${i + 1} last 30 seconds"></canvas>
                     <select class="param-select" data-output="cv${i}" onchange="updateParam('cv', ${i}, this.value)">
                         ${buildCVOptions(currentData.cvParams[i])}
                     </select>
+                    <div class="slew-row">
+                        <label for="cv${i + 1}-slew">Slew</label>
+                        <input type="number" class="slew-input" id="cv${i + 1}-slew" min="0" max="600" step="0.5"
+                               value="${currentData.cvSlew[i]}" onchange="updateSlew(${i}, this.value)">
+                        <span>s / 0-5V</span>
+                    </div>
                 </div>
             `;
         }
@@ -214,6 +234,7 @@
                     <div class="output-bar">
                         <div class="output-fill" id="gate${i + 1}-bar" style="width: ${state ? '100' : '0'}%"></div>
                     </div>
+                    <canvas class="output-scope" id="gate${i + 1}-scope" aria-label="GATE ${i + 1} last 30 seconds"></canvas>
                     <select class="param-select" data-output="gate${i}" onchange="updateParam('gate', ${i}, this.value)">
                         ${buildGateOptions(currentData.gateParams[i])}
                     </select>
@@ -226,7 +247,7 @@
     // Build CV parameter options
     function buildCVOptions(selected) {
         let html = '';
-        const categories = { weather: '── Weather ──', celestial: '── Celestial ──', space: '── Space ──' };
+        const categories = { weather: '── Weather ──', celestial: '── Celestial ──', space: '── Space ──', motion: '── Motion ──' };
         
         for (const [cat, label] of Object.entries(categories)) {
             const params = parameters.cv.filter(p => p.category === cat);
@@ -304,15 +325,22 @@
 
     // Build configuration section
     function buildConfigSection() {
-        return `
-            <div class="config-group">
-                <h3>API Keys</h3>
+        const apiKeyControls = currentData.requiresUserApiKey ? `
                 <div class="api-key-row">
-                    <input type="password" id="openweather-key" placeholder="OpenWeather API Key" 
+                    <input type="password" id="openweather-key" placeholder="OpenWeather API Key"
                            value="${currentData.hasOpenWeatherKey ? '••••••••••••' : ''}">
                     ${currentData.hasOpenWeatherKey ? '<button class="btn-delete" onclick="deleteAPIKey(\'openweather\')" title="Delete API Key">🗑️</button>' : ''}
                 </div>
                 <button class="btn-primary" onclick="saveAPIKeys()">Save Keys</button>
+        ` : `
+                <div class="info-text">Weather: <strong>Managed by TEM Bridge</strong></div>
+                <div class="info-text">User API key: <strong>Not required</strong></div>
+        `;
+
+        return `
+            <div class="config-group">
+                <h3>${currentData.requiresUserApiKey ? 'API Keys' : 'Weather Service'}</h3>
+                ${apiKeyControls}
             </div>
             <div class="config-group">
                 <h3>Network</h3>
@@ -598,6 +626,27 @@
         }).catch(err => console.error('Param update error:', err));
     };
 
+    // Update CV slew time (seconds for a full 0-5V sweep, 0 = off)
+    window.updateSlew = function(index, value) {
+        const seconds = Math.min(600, Math.max(0, parseFloat(value) || 0));
+        currentData.cvSlew[index] = seconds;
+        const input = document.getElementById(`cv${index + 1}-slew`);
+        if (input) input.value = seconds;
+
+        const data = new URLSearchParams();
+        data.append(`cv${index + 1}slew`, seconds);
+
+        fetch(`${config.apiEndpoint}/api/params`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: data
+        }).then(response => {
+            if (response.ok) {
+                showNotification(`CV ${index + 1} slew ${seconds}s`, 'success');
+            }
+        }).catch(err => console.error('Slew update error:', err));
+    };
+
     // Save API keys
     // Delete API key function
     window.deleteAPIKey = function(keyType) {
@@ -638,7 +687,13 @@
     };
     
     window.saveAPIKeys = function() {
-        const weatherKey = document.getElementById('openweather-key').value;
+        if (!currentData.requiresUserApiKey) {
+            showNotification('Weather is managed by TEM Bridge', 'info');
+            return;
+        }
+
+        const keyInput = document.getElementById('openweather-key');
+        const weatherKey = keyInput ? keyInput.value : '';
         
         if (!weatherKey || weatherKey === '••••••••••••') {
             showNotification('Please enter OpenWeather API key', 'error');
@@ -841,15 +896,15 @@
         const outputsSection = document.querySelector('.outputs-grid')?.closest('.section');
         const locationSection = document.querySelector('#map')?.closest('.section');
         
-        if (currentData.hasOpenWeatherKey) {
-            // API key exists - remove missing class from all sections
+        if (!currentData.requiresUserApiKey || currentData.hasOpenWeatherKey) {
+            // Weather is available through TEM Bridge or a user API key.
             [weatherSection, outputsSection, locationSection].forEach(section => {
                 if (section) {
                     section.classList.remove('api-key-missing');
                 }
             });
         } else {
-            // API key missing - add missing class to all dependent sections
+            // API key missing - add missing class to all dependent sections.
             [weatherSection, outputsSection, locationSection].forEach(section => {
                 if (section) {
                     section.classList.add('api-key-missing');
@@ -1074,7 +1129,10 @@
             10: { value: currentData.moonPhase * 100, unit: '%' }, // Moon Phase
             11: { value: currentData.solarElevation, unit: '°' },  // Solar Elevation
             12: { value: currentData.solarWindSpeed, unit: 'km/s' }, // Solar Wind
-            13: { value: currentData.kpIndex, unit: '' }        // Kp Index
+            13: { value: currentData.kpIndex, unit: '' },       // Kp Index
+            17: { value: currentData.pressureTrend, unit: 'hPa' },    // Pressure Trend
+            18: { value: currentData.temperatureTrend, unit: '°C' },  // Temp Trend
+            19: { value: currentData.dayCycle * 100, unit: '%' }      // Day Cycle
         };
         
         const param = paramMap[paramId];
@@ -1128,7 +1186,8 @@
     function updateAPIStatus() {
         const dot = document.getElementById('api-status');
         if (dot) {
-            dot.className = `status-dot ${currentData.hasOpenWeatherKey ? 'online' : 'offline'}`;
+            const serviceReady = !currentData.requiresUserApiKey || currentData.hasOpenWeatherKey;
+            dot.className = `status-dot ${serviceReady ? 'online' : 'offline'}`;
         }
     }
 
@@ -1181,6 +1240,148 @@
         }
     }
 
+    // Live CV/GATE monitor: polls /api/cv quickly and draws the last 30 s
+    const MONITOR_INTERVAL_MS = 250;
+    const MONITOR_SAMPLES = 120;
+    const monitor = {
+        cv: [[], []],
+        cvTarget: [[], []],
+        gate: [[], []],      // { high, trig } per sample
+        lastEdges: null,
+        busy: false
+    };
+
+    function pushSample(list, value) {
+        list.push(value);
+        if (list.length > MONITOR_SAMPLES) list.shift();
+    }
+
+    function pollMonitor() {
+        if (document.hidden || monitor.busy) return;
+        monitor.busy = true;
+        fetch(`${config.apiEndpoint}/api/cv`)
+            .then(r => r.json())
+            .then(d => {
+                const cv = [d.cv1 || 0, d.cv2 || 0];
+                const targets = d.cvTargets || cv;
+                const gates = [d.gate1 || 0, d.gate2 || 0];
+                const edges = d.gateEdges || [0, 0];
+
+                for (let i = 0; i < 2; i++) {
+                    pushSample(monitor.cv[i], cv[i]);
+                    pushSample(monitor.cvTarget[i], targets[i]);
+                    // Triggers are ~20 ms, shorter than the poll, so count edges between polls
+                    const trig = monitor.lastEdges !== null && edges[i] > monitor.lastEdges[i];
+                    pushSample(monitor.gate[i], { high: gates[i] > 0.5, trig });
+                }
+                monitor.lastEdges = edges;
+                currentData.cvValues = cv;
+                currentData.gateValues = gates;
+                if (d.cvSlew) currentData.cvSlew = d.cvSlew;
+
+                updateLiveOutputs();
+                drawScopes();
+            })
+            .catch(() => {})
+            .finally(() => { monitor.busy = false; });
+    }
+
+    // Lightweight per-poll update (updateOutputDisplays also syncs selects and logs)
+    function updateLiveOutputs() {
+        for (let i = 0; i < 2; i++) {
+            const cvEl = document.getElementById(`cv${i + 1}-value`);
+            const cvBar = document.getElementById(`cv${i + 1}-bar`);
+            if (cvEl) cvEl.textContent = `${(currentData.cvValues[i] * 5).toFixed(2)}V`;
+            if (cvBar) cvBar.style.width = `${currentData.cvValues[i] * 100}%`;
+
+            const samples = monitor.gate[i];
+            const last = samples[samples.length - 1];
+            const active = last && (last.high || last.trig);
+            const gateEl = document.getElementById(`gate${i + 1}-value`);
+            const gateBar = document.getElementById(`gate${i + 1}-bar`);
+            if (gateEl) {
+                gateEl.textContent = last && last.trig && !last.high ? 'TRIG' : (active ? 'HIGH' : 'LOW');
+                gateEl.className = `output-value ${active ? 'gate-high' : 'gate-low'}`;
+            }
+            if (gateBar) gateBar.style.width = active ? '100%' : '0%';
+
+            const slewInput = document.getElementById(`cv${i + 1}-slew`);
+            if (slewInput && document.activeElement !== slewInput) {
+                slewInput.value = currentData.cvSlew[i];
+            }
+        }
+    }
+
+    function prepareCanvas(canvas) {
+        const dpr = window.devicePixelRatio || 1;
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+        if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+            canvas.width = Math.round(width * dpr);
+            canvas.height = Math.round(height * dpr);
+        }
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, width, height);
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, height / 2);
+        ctx.lineTo(width, height / 2);
+        ctx.stroke();
+        return { ctx, width, height };
+    }
+
+    function drawScopes() {
+        const step = (width) => width / (MONITOR_SAMPLES - 1);
+        for (let i = 0; i < 2; i++) {
+            const cvCanvas = document.getElementById(`cv${i + 1}-scope`);
+            if (cvCanvas) {
+                const { ctx, width, height } = prepareCanvas(cvCanvas);
+                const dx = step(width);
+                const offset = MONITOR_SAMPLES - monitor.cv[i].length;
+                const y = v => height - 2 - Math.min(1, Math.max(0, v)) * (height - 4);
+
+                ctx.setLineDash([3, 3]);
+                ctx.strokeStyle = 'rgba(0,204,255,0.5)';
+                ctx.beginPath();
+                monitor.cvTarget[i].forEach((v, n) => {
+                    const x = (offset + n) * dx;
+                    n === 0 ? ctx.moveTo(x, y(v)) : ctx.lineTo(x, y(v));
+                });
+                ctx.stroke();
+
+                ctx.setLineDash([]);
+                ctx.strokeStyle = '#00ff88';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                monitor.cv[i].forEach((v, n) => {
+                    const x = (offset + n) * dx;
+                    n === 0 ? ctx.moveTo(x, y(v)) : ctx.lineTo(x, y(v));
+                });
+                ctx.stroke();
+            }
+
+            const gateCanvas = document.getElementById(`gate${i + 1}-scope`);
+            if (gateCanvas) {
+                const { ctx, width, height } = prepareCanvas(gateCanvas);
+                const dx = step(width);
+                const offset = MONITOR_SAMPLES - monitor.gate[i].length;
+                monitor.gate[i].forEach((s, n) => {
+                    const x = (offset + n) * dx;
+                    if (s.high) {
+                        ctx.fillStyle = 'rgba(0,255,136,0.35)';
+                        ctx.fillRect(x, 4, dx + 0.5, height - 8);
+                    }
+                    if (s.trig) {
+                        ctx.fillStyle = '#00ff88';
+                        ctx.fillRect(x, 2, 2, height - 4);
+                    }
+                });
+            }
+        }
+    }
+
     // Start periodic updates
     function startUpdates() {
         // First fetch device status
@@ -1193,6 +1394,7 @@
         // Then start regular data updates
         fetchData();
         updateInterval = setInterval(fetchData, 2000);
+        setInterval(pollMonitor, MONITOR_INTERVAL_MS);
         
         // Check for updates silently on startup
         setTimeout(checkForUpdatesQuietly, 3000);
@@ -1211,6 +1413,19 @@
                     deviceEls.forEach(el => {
                         el.textContent = `tem-${data.deviceID}.local`;
                     });
+                }
+
+                if (data.requiresUserApiKey !== undefined) {
+                    currentData.requiresUserApiKey = data.requiresUserApiKey;
+                    currentData.bridgeEnabled = data.bridgeEnabled || false;
+                    currentData.weatherMode = data.weatherMode || (currentData.bridgeEnabled ? 'bridge' : 'openweather');
+
+                    const configGrid = document.querySelector('.config-grid');
+                    if (configGrid) {
+                        configGrid.innerHTML = buildConfigSection();
+                    }
+                    updateAPIStatus();
+                    updateApiKeyStatus();
                 }
                 
                 // Load saved location from device
@@ -1253,6 +1468,11 @@
                 console.log('API keys fetched:', data);
                 currentData.hasOpenWeatherKey = data.hasOpenWeather || false;
                 currentData.hasNasaKey = data.hasNasa || false;
+                if (data.requiresUserApiKey !== undefined) {
+                    currentData.requiresUserApiKey = data.requiresUserApiKey;
+                }
+                currentData.bridgeEnabled = data.bridgeEnabled || false;
+                currentData.weatherMode = data.weatherMode || (currentData.bridgeEnabled ? 'bridge' : 'openweather');
                 
                 // Update form if keys exist
                 if (data.openWeatherKey && data.openWeatherKey.length > 0) {
@@ -1279,6 +1499,7 @@
                 }, 100);
                 
                 updateAPIStatus();
+                updateApiKeyStatus();
             })
             .catch(err => console.error('Failed to fetch API keys:', err));
     }

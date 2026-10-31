@@ -1,0 +1,10 @@
+name = "tem-resource-assets"
+compatibility_date = "2026-07-24"
+account_id = "791a5140f688063a39876a7720410e7b"
+
+routes = [
+  { pattern = "resource.hugelton.com", custom_domain = true }
+]
+
+[assets]
+directory = "cloudflare-public"
