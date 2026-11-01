@@ -14,7 +14,8 @@
 
     // Slew and motion parameters need firmware 1.3.0+, which is the first to send cvSlew.
     // Older firmware ignores params >= 15 and would freeze that output.
-    const firmwareHasMotion = Array.isArray((window.TEM_DATA || {}).cvSlew);
+    // Read lazily: the firmware page defines TEM_DATA after this script tag.
+    const firmwareHasMotion = () => Array.isArray((window.TEM_DATA || {}).cvSlew);
     const MOTION_MIN_VERSION = '1.3.0';
     const UPDATE_WIZARD_URL = 'https://updater.hugelton.com/TEM/';
     
@@ -220,7 +221,7 @@
     }
 
     function buildSlewRow(i) {
-        if (!firmwareHasMotion) {
+        if (!firmwareHasMotion()) {
             return `
                 <div class="slew-row slew-locked">
                     <label>Slew</label>
@@ -240,7 +241,7 @@
 
     // Motion options stay visible on old firmware so users know what an update brings
     function buildOption(p, selected, detail) {
-        const locked = p.category === 'motion' && !firmwareHasMotion;
+        const locked = p.category === 'motion' && !firmwareHasMotion();
         const badge = locked ? ` (v${MOTION_MIN_VERSION}+)` : (p.isNew ? ' ●NEW' : '');
         const style = p.isNew && !locked ? 'color: #000 !important; background: #00ff88 !important; font-weight: bold !important;' : '';
         return `<option value="${p.id}" ${p.id === selected ? 'selected' : ''} ${locked ? 'disabled' : ''} style="${style}">
