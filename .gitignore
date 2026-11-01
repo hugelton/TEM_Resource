@@ -1,2 +1,4 @@
 .wrangler/
 cloudflare-public/.DS_Store
+cloudflare-public/
+.DS_Store
