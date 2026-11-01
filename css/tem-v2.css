@@ -286,6 +286,22 @@ body {
     color: #666;
 }
 
+.slew-locked a,
+.update-banner a {
+    color: #00ff88;
+    text-decoration: none;
+}
+
+.update-banner {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: #ccc;
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.3);
+    border-radius: 4px;
+}
+
 .slew-row label {
     text-transform: uppercase;
     letter-spacing: 1px;

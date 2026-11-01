@@ -11,6 +11,12 @@
     
     // Set API endpoint
     config.apiEndpoint = config.baseUrl || window.location.origin;
+
+    // Slew and motion parameters need firmware 1.3.0+, which is the first to send cvSlew.
+    // Older firmware ignores params >= 15 and would freeze that output.
+    const firmwareHasMotion = Array.isArray((window.TEM_DATA || {}).cvSlew);
+    const MOTION_MIN_VERSION = '1.3.0';
+    const UPDATE_WIZARD_URL = 'https://updater.hugelton.com/TEM/';
     
     // Ensure deviceID exists
     if (!config.deviceID) {
@@ -138,6 +144,7 @@
                 <div class="section-header">
                     <span class="section-title">CV / GATE Outputs</span>
                 </div>
+                <div class="update-banner" id="update-banner" style="display: none;"></div>
                 <div class="outputs-grid">
                     ${buildCVOutputs()}
                     ${buildGateOutputs()}
@@ -205,16 +212,40 @@
                     <select class="param-select" data-output="cv${i}" onchange="updateParam('cv', ${i}, this.value)">
                         ${buildCVOptions(currentData.cvParams[i])}
                     </select>
-                    <div class="slew-row">
-                        <label for="cv${i + 1}-slew">Slew</label>
-                        <input type="number" class="slew-input" id="cv${i + 1}-slew" min="0" max="600" step="0.5"
-                               value="${currentData.cvSlew[i]}" onchange="updateSlew(${i}, this.value)">
-                        <span>s / 0-5V</span>
-                    </div>
+                    ${buildSlewRow(i)}
                 </div>
             `;
         }
         return html;
+    }
+
+    function buildSlewRow(i) {
+        if (!firmwareHasMotion) {
+            return `
+                <div class="slew-row slew-locked">
+                    <label>Slew</label>
+                    <a href="${UPDATE_WIZARD_URL}" target="_blank">Update firmware to v${MOTION_MIN_VERSION}+</a>
+                </div>
+            `;
+        }
+        return `
+            <div class="slew-row">
+                <label for="cv${i + 1}-slew">Slew</label>
+                <input type="number" class="slew-input" id="cv${i + 1}-slew" min="0" max="600" step="0.5"
+                       value="${currentData.cvSlew[i]}" onchange="updateSlew(${i}, this.value)">
+                <span>s / 0-5V</span>
+            </div>
+        `;
+    }
+
+    // Motion options stay visible on old firmware so users know what an update brings
+    function buildOption(p, selected, detail) {
+        const locked = p.category === 'motion' && !firmwareHasMotion;
+        const badge = locked ? ` (v${MOTION_MIN_VERSION}+)` : (p.isNew ? ' ●NEW' : '');
+        const style = p.isNew && !locked ? 'color: #000 !important; background: #00ff88 !important; font-weight: bold !important;' : '';
+        return `<option value="${p.id}" ${p.id === selected ? 'selected' : ''} ${locked ? 'disabled' : ''} style="${style}">
+                        ${p.name} [${detail}]${badge}
+                    </option>`;
     }
 
     // Build Gate outputs
@@ -254,10 +285,7 @@
             if (params.length > 0) {
                 html += `<optgroup label="${label}">`;
                 params.forEach(p => {
-                    const badge = p.isNew ? ' ●NEW' : '';
-                    html += `<option value="${p.id}" ${p.id === selected ? 'selected' : ''} style="${p.isNew ? 'color: #000 !important; background: #00ff88 !important; font-weight: bold !important;' : ''}">
-                        ${p.name} [${p.range[0]},${p.range[1]}${p.unit}]${badge}
-                    </option>`;
+                    html += buildOption(p, selected, `${p.range[0]},${p.range[1]}${p.unit}`);
                 });
                 html += '</optgroup>';
             }
@@ -269,10 +297,7 @@
     function buildGateOptions(selected) {
         let html = '<optgroup label="── Gate Logic ──">';
         parameters.gate.forEach(p => {
-            const badge = p.isNew ? ' ●NEW' : '';
-            html += `<option value="${p.id}" ${p.id === selected ? 'selected' : ''} style="${p.isNew ? 'color: #000 !important; background: #00ff88 !important; font-weight: bold !important;' : ''}">
-                ${p.name} [${p.logic}]${badge}
-            </option>`;
+            html += buildOption(p, selected, p.logic);
         });
         html += '</optgroup>';
         return html;
@@ -860,6 +885,7 @@
                             const comparison = compareVersions(currentVersion, latestVersion);
                             if (comparison === 1) {
                                 showUpdateDot();
+                                showUpdateBanner(currentVersion, latestVersion, remoteData.updateUrl || data.updateWizardUrl);
                                 console.log(`Update available: ${currentVersion} → ${latestVersion}`);
                             } else if (comparison === -1) {
                                 console.log(`Current version ${currentVersion} is newer than remote ${latestVersion}`);
@@ -875,6 +901,14 @@
             .catch(err => {
                 console.log('Silent update check failed:', err);
             });
+    }
+
+    function showUpdateBanner(currentVersion, latestVersion, url) {
+        const banner = document.getElementById('update-banner');
+        if (!banner) return;
+        banner.innerHTML = `Firmware v${latestVersion} is available (this module: v${currentVersion}).
+            <a href="${url || UPDATE_WIZARD_URL}" target="_blank">Open Update Assistant →</a>`;
+        banner.style.display = 'block';
     }
 
     // Show/hide update notification dot
